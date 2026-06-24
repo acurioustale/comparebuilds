@@ -14,6 +14,9 @@ header('Cache-Control: no-store');
 // and writes, so only the site itself (same origin) can use this API.
 
 // ─── Limits / config ───────────────────────────────────────────────────────────
+// MAX_BUILDS / MAX_BUILD_LEN are mirrored client-side in src/store/buildsStore.js.
+// This file is the authority (the client only validates early for nicer errors);
+// keep the two in sync if either limit changes.
 const MAX_BODY_BYTES    = 16384; // raw POST body cap (5 builds * 2000 + overhead)
 const MAX_BUILD_LEN     = 2000;
 const MIN_BUILDS        = 2;

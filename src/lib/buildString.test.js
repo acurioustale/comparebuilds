@@ -153,8 +153,18 @@ describe('error handling', () => {
   })
 
   test('parseBuildString throws when the stream is exhausted (truncated)', () => {
-    // Two chars = 12 bits, but the header alone needs 24 — runs out mid-header.
-    assert.throws(() => parseBuildString('AA', TINY), /exhausted/)
+    // 'CA' = a valid v2 version byte (so it passes the version gate) but only
+    // 12 bits total, while the header needs 24 — runs out mid-header.
+    assert.throws(() => parseBuildString('CA', TINY), /exhausted/)
+  })
+
+  test('parseBuildString rejects an unsupported serialisation version', () => {
+    // 'AA' decodes to version 0; only version 2 is supported.
+    assert.throws(() => parseBuildString('AAAAAAAA', TINY), /Unsupported build string version 0/)
+  })
+
+  test('parseSpecId rejects an unsupported serialisation version', () => {
+    assert.throws(() => parseSpecId('AAAAAAAA'), /Unsupported build string version 0/)
   })
 
   test('parseSpecId rejects a non-string', () => {

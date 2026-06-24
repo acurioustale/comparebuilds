@@ -175,6 +175,9 @@ function normaliseSpec(specRaw, specInfo) {
     specSlug: specInfo.name,
     color: specInfo.color,
     icon: specInfo.icon,
+    // Plain-text blurb — NOT HTML-rendered, so deliberately not sanitised. If you
+    // ever render this (or the heroSubtrees descriptions below), keep it as text;
+    // see src/lib/sanitizeDescription.js "SCOPE".
     description: specInfo.description,
     // Budgets derived from tree structure rather than hardcoded
     pointBudget: { ...POINT_BUDGET, spec: POINT_BUDGET.spec + apexNode.maxRanks, hero: heroBudget },

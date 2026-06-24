@@ -66,6 +66,19 @@ describe('addBuild validation', () => {
     assert.match(get().error ?? '', /not found in the local class index/)
     assert.strictEqual(get().buildStrings.length, 0)
   })
+
+  test('rejects an over-length string before any parsing', async () => {
+    await get().addBuild('A'.repeat(2001))
+    assert.match(get().error ?? '', /too long/)
+    assert.strictEqual(get().buildStrings.length, 0)
+  })
+
+  test('surfaces an unsupported-version error', async () => {
+    // 'AAAAAAAA' decodes to version 0; only version 2 is supported.
+    await get().addBuild('AAAAAAAA')
+    assert.match(get().error ?? '', /unsupported build string version|newer game format/i)
+    assert.strictEqual(get().buildStrings.length, 0)
+  })
 })
 
 // ── Happy path ────────────────────────────────────────────────────────────────

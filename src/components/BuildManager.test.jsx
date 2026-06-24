@@ -64,7 +64,7 @@ describe('BuildManager import flow', () => {
   test('an unparseable string surfaces an error and adds nothing', async () => {
     render(<BuildManager />)
     paste(screen.getAllByRole('textbox')[0], 'not-a-real-build')
-    expect(await screen.findByText(/could not read|not found|invalid/i)).toBeInTheDocument()
+    expect(await screen.findByText(/could not read|not found|invalid|unsupported|version/i)).toBeInTheDocument()
     expect(useBuildsStore.getState().buildStrings.length).toBe(0)
   })
 
