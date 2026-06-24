@@ -1,14 +1,23 @@
 // ─── Prerequisite and gate logic — shared between interactive and import views ─
 
 /**
+ * Directly connected parents sitting above `node` (posY less than node's). These
+ * are its prerequisite candidates — satisfying any one of them unlocks the node.
+ * Shared by hasUpperPrereq and computeInvalidNodeIds so the two never drift.
+ */
+export function upperParents(node, nodeById) {
+  return node.connections
+    .map((id) => nodeById[id])
+    .filter((c) => c && c.posY < node.posY)
+}
+
+/**
  * Returns true if at least one directly connected upper parent (posY < node.posY)
  * is fully selected. alreadyGranted parents are treated as permanently satisfied.
  * Nodes with no upper connections (root nodes) always pass.
  */
 export function hasUpperPrereq(node, selected, nodeById) {
-  const upper = node.connections
-    .map((id) => nodeById[id])
-    .filter((c) => c && c.posY < node.posY)
+  const upper = upperParents(node, nodeById)
   if (upper.length === 0) return true
   return upper.some((c) => {
     if (c.alreadyGranted) return true
@@ -86,9 +95,7 @@ export function computeInvalidNodeIds(allNodes, selected, nodeById) {
 
     // Prereq cascade: an invalid parent does NOT satisfy the requirement
     if (!shouldFlag) {
-      const upper = node.connections
-        .map((id) => nodeById[id])
-        .filter((c) => c && c.posY < node.posY)
+      const upper = upperParents(node, nodeById)
 
       if (upper.length > 0) {
         const anyValidParent = upper.some((c) => {

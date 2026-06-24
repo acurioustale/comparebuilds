@@ -122,14 +122,21 @@ npm run test:watch  # watch mode
 npm run coverage    # run with a coverage report (text + html in coverage/)
 ```
 
-Runs three suites:
+The suite spans the logic layer and the components (Vitest, ~390 tests across a
+dozen files in `src/`). The ones that specifically guard data correctness — the
+most important to understand before editing `src/data/`:
 
 - **`treeLogic.test.js`** — prerequisite/gate cascade logic.
 - **`buildString.test.js`** — per-class encode→decode round-trips, so a data
   change that would silently misparse build strings fails here instead.
+- **`buildFixtures.test.js`** — decodes real build strings exported from the
+  in-game UI, confirming our node IDs/ordering/budgets match what the game emits.
 - **`dataIntegrity.test.js`** — validates every class file against the schema
   (`validateClassData.js`) and checks each class's build-string **wire-layout
   snapshot** (`wireLayout.snapshot.json`).
+
+The rest cover the store, the diff/heatmap logic, the HTML sanitiser, and the
+React components.
 
 ### Editing or repopulating the data
 

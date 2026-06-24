@@ -51,6 +51,14 @@
  *   different 64-character table.
  */
 
+// ─── Serialisation version ─────────────────────────────────────────────────────
+// The 8-bit version that opens every string. The bit layout documented above is
+// the v2 layout; the game currently emits v2 and we write v2. A different version
+// would imply a different layout, so the parsers reject it loudly rather than
+// silently misreading every node position. Bump (and update the layout) only when
+// the game's format actually changes.
+export const SERIALIZATION_VERSION = 2
+
 // ─── Character table ─────────────────────────────────────────────────────────
 
 const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -184,6 +192,9 @@ export function parseBuildString(buildString, nodes) {
   const reader = new BitReader(buildString)
 
   const version = reader.readBits(8)
+  if (version !== SERIALIZATION_VERSION) {
+    throw new RangeError(`Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`)
+  }
   const specId  = reader.readBits(16)
   reader.skipBits(128)  // Blizzard internal hash — opaque, carries a real (non-zero) value in game exports but is not needed to decode the selection
 
@@ -294,8 +305,8 @@ class BitWriter {
 export function generateBuildString(selectedNodes, specId, classNodes, grantedIds = new Set()) {
   const writer = new BitWriter()
 
-  writer.writeBits(2, 8)       // version
-  writer.writeBits(specId, 16) // specId
+  writer.writeBits(SERIALIZATION_VERSION, 8) // version
+  writer.writeBits(specId, 16)               // specId
   writer.writeBits(0, 128)     // Blizzard hash (zeros)
 
   const byId = new Map(classNodes.map((n) => [n.id, n]))
@@ -346,6 +357,9 @@ export function parseSpecId(buildString) {
   }
   const reader = new BitReader(buildString)
   const version = reader.readBits(8)
+  if (version !== SERIALIZATION_VERSION) {
+    throw new RangeError(`Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`)
+  }
   const specId  = reader.readBits(16)
   return { version, specId }
 }

@@ -2,7 +2,11 @@ import { create } from 'zustand'
 import classesIndex from '../data/classes.json'
 import { parseSpecId, parseBuildString, collectClassNodes } from '../lib/buildString'
 import { buildGrantedSeed } from '../lib/treeLogic'
+// NOTE: these limits are mirrored server-side in api/share.php (MAX_BUILDS,
+// MAX_BUILD_LEN). Keep the two in sync — the server rejects anything past them, so
+// validating here too just gives a clearer message before the share round-trip.
 export const MAX_BUILDS = 5
+export const MAX_BUILD_LEN = 2000
 
 // Vite creates a lazy chunk per matched file. The glob must be a string literal.
 // Paths are relative to this file (src/store/ → src/data/). classes.json is the
@@ -213,6 +217,11 @@ export const useBuildsStore = create((set, get) => ({
       return
     }
 
+    if (buildString.length > MAX_BUILD_LEN) {
+      set({ error: `Build string is too long (max ${MAX_BUILD_LEN} characters).` })
+      return
+    }
+
     const { buildStrings, specId: currentSpecId, classNodes, isLoading } = get()
 
     if (buildStrings.length >= MAX_BUILDS) {
@@ -231,8 +240,15 @@ export const useBuildsStore = create((set, get) => ({
     let header
     try {
       header = parseSpecId(buildString)
-    } catch {
-      set({ error: 'Could not read the build string header — it may be truncated or corrupt.' })
+    } catch (err) {
+      // Surface the specific reason for an unsupported version; otherwise treat it
+      // as an unreadable header (bad base64, truncation, etc.).
+      const isVersion = err instanceof RangeError && /version/i.test(err.message)
+      set({
+        error: isVersion
+          ? `${err.message}. This build string is from a newer game format than this tool supports.`
+          : 'Could not read the build string header — it may be truncated or corrupt.',
+      })
       return
     }
 
