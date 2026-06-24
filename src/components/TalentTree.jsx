@@ -460,6 +460,7 @@ function TreePanel({
   highlights = {}, checkpoints = [],
   invalidNodeIds = null, heroLocked = false,
   onNodeClick = null, onNodeContextMenu = null,
+  onClear = null, clearDisabled = false,
 }) {
   const rawId  = useId()
   const gradId = `tl-${rawId.replace(/:/g, '')}`
@@ -488,14 +489,16 @@ function TreePanel({
       style={{
         position: 'relative',
         width: W,
-        height: H,
+        // Reserve a strip below the grid for the in-panel Clear so it never
+        // overlaps a corner node (some class trees reach the bottom-right).
+        height: onClear ? H + 24 : H,
         flexShrink: 0,
       }}
     >
       <svg
         width={W}
         height={H}
-        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
       >
         <defs>
           <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={H}>
@@ -540,6 +543,19 @@ function TreePanel({
       ))}
 
       {heroLocked && <HeroLockedOverlay />}
+
+      {/* In-panel Clear, anchored to the lower-right corner. zIndex sits above the
+          hero lock overlay so it stays visible (disabled) on the inactive subtree. */}
+      {onClear && (
+        <button
+          onClick={onClear}
+          disabled={clearDisabled}
+          className="wow-btn text-[10px] px-2 py-0.5 rounded select-none"
+          style={{ position: 'absolute', right: 8, bottom: 5, zIndex: 11 }}
+        >
+          Clear
+        </button>
+      )}
     </div>
   )
 }
@@ -553,22 +569,6 @@ function SectionCounter({ spent, max }) {
     <span className={`font-mono tabular-nums text-[11px] tracking-normal ${full ? 'text-green-400' : 'text-wow-text'}`}>
       {spent}<span className="text-wow-muted">/{max}</span>
     </span>
-  )
-}
-
-// Right-aligned "Clear" button placed beneath a section's talent grid (aligning
-// with the global Clear All); only rendered in interactive mode.
-function SectionClear({ onClick, disabled }) {
-  return (
-    <div className="flex justify-end mt-2.5">
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className="wow-btn text-[10px] px-2 py-0.5 rounded select-none"
-      >
-        Clear
-      </button>
-    </div>
   )
 }
 
@@ -643,8 +643,9 @@ export default function TalentTree({
               invalidNodeIds={invalidNodeIds}
               onNodeClick={onNodeClick}
               onNodeContextMenu={onNodeContextMenu}
+              onClear={onClearSection ? () => onClearSection('class') : null}
+              clearDisabled={!sectionSpent?.class}
             />
-            {onClearSection && <SectionClear onClick={() => onClearSection('class')} disabled={!sectionSpent?.class} />}
           </div>
 
           <div className="hidden md:block self-stretch w-px bg-wow-dim mx-3 mt-5" />
@@ -665,8 +666,9 @@ export default function TalentTree({
               invalidNodeIds={invalidNodeIds}
               onNodeClick={onNodeClick}
               onNodeContextMenu={onNodeContextMenu}
+              onClear={onClearSection ? () => onClearSection('spec') : null}
+              clearDisabled={!sectionSpent?.spec}
             />
-            {onClearSection && <SectionClear onClick={() => onClearSection('spec')} disabled={!sectionSpent?.spec} />}
           </div>
         </div>
 
@@ -688,33 +690,32 @@ export default function TalentTree({
             </div>
           </div>
 
-          {/* Wrap grids + clear to the grids' width so the clear right-aligns to
-              the hero trees' edge, not the full-width section. */}
-          <div className="w-max max-w-full mx-auto">
-            <div className="flex flex-col items-center gap-5 md:flex-row md:items-start md:gap-0">
-              <TreePanel
-                nodes={leftNodes}
-                selectedNodes={selectedNodes}
-                nodeById={nodeById}
-                highlights={highlights}
-                invalidNodeIds={invalidNodeIds}
-                heroLocked={leftLocked}
-                onNodeClick={onNodeClick}
-                onNodeContextMenu={onNodeContextMenu}
-              />
-              <div className="hidden md:block self-stretch w-px bg-wow-dim mx-3" />
-              <TreePanel
-                nodes={rightNodes}
-                selectedNodes={selectedNodes}
-                nodeById={nodeById}
-                highlights={highlights}
-                invalidNodeIds={invalidNodeIds}
-                heroLocked={rightLocked}
-                onNodeClick={onNodeClick}
-                onNodeContextMenu={onNodeContextMenu}
-              />
-            </div>
-            {onClearSection && <SectionClear onClick={() => onClearSection('hero')} disabled={!sectionSpent?.hero} />}
+          <div className="flex flex-col items-center gap-5 md:flex-row md:items-start md:justify-center md:gap-0">
+            <TreePanel
+              nodes={leftNodes}
+              selectedNodes={selectedNodes}
+              nodeById={nodeById}
+              highlights={highlights}
+              invalidNodeIds={invalidNodeIds}
+              heroLocked={leftLocked}
+              onNodeClick={onNodeClick}
+              onNodeContextMenu={onNodeContextMenu}
+              onClear={onClearSection ? () => onClearSection('hero') : null}
+              clearDisabled={activeHero !== treeData.heroSubtrees.left.name}
+            />
+            <div className="hidden md:block self-stretch w-px bg-wow-dim mx-3" />
+            <TreePanel
+              nodes={rightNodes}
+              selectedNodes={selectedNodes}
+              nodeById={nodeById}
+              highlights={highlights}
+              invalidNodeIds={invalidNodeIds}
+              heroLocked={rightLocked}
+              onNodeClick={onNodeClick}
+              onNodeContextMenu={onNodeContextMenu}
+              onClear={onClearSection ? () => onClearSection('hero') : null}
+              clearDisabled={activeHero !== treeData.heroSubtrees.right.name}
+            />
           </div>
         </div>
 
