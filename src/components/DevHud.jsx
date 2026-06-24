@@ -23,8 +23,8 @@ export default function DevHud() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const stacked = w < 1280          // xl: Class/Spec/Hero stacking
-  const diffSideBySide = w >= 1536  // 2xl: two-build diff arrangement
+  const stacked = w < 1280       // xl: Class/Spec/Hero stacking
+  const diffPaired = w >= 1280   // xl: section-paired diff (paired vs stacked)
 
   const Row = ({ label, value, warn }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
@@ -46,9 +46,9 @@ export default function DevHud() {
       <div style={{ color: '#c8a84b', marginBottom: 4, fontWeight: 700 }}>responsive HUD</div>
       <Row label="viewport" value={`${w}px`} />
       <Row label="trees" value={stacked ? 'stacked' : 'side-by-side'} warn={stacked} />
-      <Row label="2-build" value={diffSideBySide ? 'diff · side-by-side' : 'diff · stacked'} warn={!diffSideBySide} />
+      <Row label="2-build" value={diffPaired ? 'paired' : 'stacked'} warn={!diffPaired} />
       <div style={{ marginTop: 5, paddingTop: 5, borderTop: '1px solid rgba(200,168,75,0.25)', opacity: 0.5, fontSize: 10 }}>
-        stack 1280 · diff 1536 · zoom off · no floor
+        stack 1280 · pair 1280 · zoom off · no floor
       </div>
     </div>
   )
