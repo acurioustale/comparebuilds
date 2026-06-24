@@ -23,7 +23,7 @@ export default function DevHud() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const stacked = w < 768           // md: Class/Spec/Hero stacking
+  const stacked = w < 1280          // xl: Class/Spec/Hero stacking
   const diffSideBySide = w >= 1536  // 2xl: two-build diff arrangement
 
   const Row = ({ label, value, warn }) => (
@@ -48,7 +48,7 @@ export default function DevHud() {
       <Row label="trees" value={stacked ? 'stacked' : 'side-by-side'} warn={stacked} />
       <Row label="2-build" value={diffSideBySide ? 'diff · side-by-side' : 'diff · stacked'} warn={!diffSideBySide} />
       <div style={{ marginTop: 5, paddingTop: 5, borderTop: '1px solid rgba(200,168,75,0.25)', opacity: 0.5, fontSize: 10 }}>
-        md 768 · 2xl 1536 · zoom off · no floor
+        stack 1280 · diff 1536 · zoom off · no floor
       </div>
     </div>
   )
