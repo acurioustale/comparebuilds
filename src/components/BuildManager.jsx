@@ -588,10 +588,17 @@ export default function BuildManager() {
       {/* ── Action buttons ─────────────────────────── */}
       {allParsed && (
         <section className="flex justify-end items-center gap-2 pt-3 border-t border-wow-dim">
-          <CopyLinkButton state={copyState} onClick={handleCopyLink} />
-          <PermalinkButton
+          <ShareButton
+            state={copyState}
+            onClick={handleCopyLink}
+            idleLabel="Copy link"
+            tooltip="A short link that shows a preview when posted. Expires after 90 days."
+          />
+          <ShareButton
             state={permalinkState}
             onClick={handleCopyPermalink}
+            idleLabel="Copy permalink"
+            tooltip="A permanent link with the build encoded in it — never expires and works offline, but it's long and shows no preview."
           />
         </section>
       )}
@@ -609,57 +616,29 @@ function SectionLabel({ children }) {
   );
 }
 
-// Short server link: stored for a clean URL that unfurls with a preview card.
-function CopyLinkButton({ state, onClick }) {
+// A share-action button: a copy control whose label tracks its state machine
+// ('idle' | 'copying' | 'copied' | 'error') and whose colour flips on success or
+// failure. Shared by the short server link and the self-contained permalink, which
+// differ only in their idle/busy labels and tooltip copy. (The permalink never
+// enters 'copying', so its busyLabel is unused.)
+function ShareButton({
+  state,
+  onClick,
+  tooltip,
+  idleLabel,
+  busyLabel = "Saving…",
+}) {
   const label =
     state === "copying"
-      ? "Saving…"
+      ? busyLabel
       : state === "copied"
         ? "Copied!"
         : state === "error"
           ? "Failed"
-          : "Copy link";
+          : idleLabel;
 
   return (
-    <Tippy
-      content="A short link that shows a preview when posted. Expires after 90 days."
-      placement="top"
-      delay={[300, 0]}
-    >
-      <button
-        onClick={onClick}
-        disabled={state !== "idle"}
-        className="wow-btn px-3 py-1.5 text-xs rounded select-none"
-        style={
-          state === "copied"
-            ? { color: "#4ade80", borderColor: "#166534" }
-            : state === "error"
-              ? { color: "#f87171", borderColor: "#7f1d1d" }
-              : undefined
-        }
-      >
-        {label}
-      </button>
-    </Tippy>
-  );
-}
-
-// Permalink: the build encoded in the URL itself — never expires and needs no
-// server, but it's a long URL with no preview.
-function PermalinkButton({ state, onClick }) {
-  const label =
-    state === "copied"
-      ? "Copied!"
-      : state === "error"
-        ? "Failed"
-        : "Copy permalink";
-
-  return (
-    <Tippy
-      content="A permanent link with the build encoded in it — never expires and works offline, but it's long and shows no preview."
-      placement="top"
-      delay={[300, 0]}
-    >
+    <Tippy content={tooltip} placement="top" delay={[300, 0]}>
       <button
         onClick={onClick}
         disabled={state !== "idle"}
