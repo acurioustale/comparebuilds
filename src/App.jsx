@@ -76,18 +76,21 @@ function useTheme() {
   return { theme, toggleTheme }
 }
 
+// Deliberately understated: a borderless glyph that blends into the header
+// chrome, dimmed by default and warming to gold on hover/focus. Dark is the
+// default look, so the toggle stays out of the way until you go looking for it.
 function ThemeToggle({ theme, onToggle }) {
   const isLight = theme === 'light'
   return (
     <button
       type="button"
       onClick={onToggle}
-      className="wow-btn rounded px-3 py-1.5 text-xs"
+      className="bg-transparent border-0 p-1 rounded text-lg leading-none cursor-pointer text-wow-muted/50 hover:text-wow-gold focus-visible:text-wow-gold transition-colors"
       aria-pressed={isLight}
       aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
       title={`Switch to ${isLight ? 'dark' : 'light'} mode`}
     >
-      {isLight ? '☾ Dark' : '☀ Light'}
+      {isLight ? '☾' : '☀'}
     </button>
   )
 }
