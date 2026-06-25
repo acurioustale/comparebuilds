@@ -1,42 +1,58 @@
-import { useMemo, useContext } from 'react'
-import Tippy from '@tippyjs/react'
-import 'tippy.js/dist/tippy.css'
-import { zamimg } from '../lib/zamimg'
-import { SearchContext } from './SearchContext'
-import { rarityTier, computeStats, computeLegendTiers } from '../lib/heatmap'
-import { CELL, ICON, CHOICE_ICON, APEX_ICON, CHOICE_GAP, PAD, byId, panelBounds, panelEdges, sectionRowClass, dividerClass } from './treeLayout'
+import { useMemo, useContext } from "react";
+import Tippy from "@tippyjs/react";
+import "tippy.js/dist/tippy.css";
+import { zamimg } from "../lib/zamimg";
+import { SearchContext } from "./SearchContext";
+import { rarityTier, computeStats, computeLegendTiers } from "../lib/heatmap";
+import {
+  CELL,
+  ICON,
+  CHOICE_ICON,
+  APEX_ICON,
+  CHOICE_GAP,
+  PAD,
+  byId,
+  panelBounds,
+  panelEdges,
+  sectionRowClass,
+  dividerClass,
+} from "./treeLayout";
 
 // Dot indicators for choice nodes (one dot per build)
-const DOT = 5
-const DOT_GAP = 1
+const DOT = 5;
+const DOT_GAP = 1;
 
 // ─── Rarity scale ─────────────────────────────────────────────────────────────
 
 const RARITY = {
-  legendary: { color: '#ff8000', glow: 'rgba(255,128,0,0.5)',   label: 'Legendary' },
-  epic:      { color: '#a335ee', glow: 'rgba(163,53,238,0.5)',  label: 'Epic'      },
-  rare:      { color: '#0070dd', glow: 'rgba(0,112,221,0.5)',   label: 'Rare'      },
-  uncommon:  { color: '#1eff00', glow: 'rgba(30,255,0,0.5)',    label: 'Uncommon'  },
-  poor:      { color: '#9d9d9d', glow: 'rgba(157,157,157,0.3)', label: 'Poor'      },
-}
+  legendary: {
+    color: "#ff8000",
+    glow: "rgba(255,128,0,0.5)",
+    label: "Legendary",
+  },
+  epic: { color: "#a335ee", glow: "rgba(163,53,238,0.5)", label: "Epic" },
+  rare: { color: "#0070dd", glow: "rgba(0,112,221,0.5)", label: "Rare" },
+  uncommon: { color: "#1eff00", glow: "rgba(30,255,0,0.5)", label: "Uncommon" },
+  poor: { color: "#9d9d9d", glow: "rgba(157,157,157,0.3)", label: "Poor" },
+};
 
 // Per-build dot/indicator colors (up to 5 builds)
-const BUILD_COLORS = ['#facc15', '#38bdf8', '#f472b6', '#4ade80', '#fb923c']
+const BUILD_COLORS = ["#facc15", "#38bdf8", "#f472b6", "#4ade80", "#fb923c"];
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
 
 function RarityLegend({ n }) {
-  const tiers = useMemo(() => computeLegendTiers(n), [n])
+  const tiers = useMemo(() => computeLegendTiers(n), [n]);
 
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
       {tiers.map(({ tier, rangeLabel }) => {
-        const r = RARITY[tier]
+        const r = RARITY[tier];
         return (
           <div key={tier} className="flex items-center gap-1.5">
             <span
               style={{
-                display: 'inline-block',
+                display: "inline-block",
                 width: 10,
                 height: 10,
                 borderRadius: 2,
@@ -50,70 +66,74 @@ function RarityLegend({ n }) {
               <span className="ml-1 text-wow-dim">{rangeLabel}</span>
             </span>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 // ─── Individual heatmap node ──────────────────────────────────────────────────
 
 function HeatmapNode({ node, px, py, stat, totalBuilds }) {
-  const count = stat?.count ?? 0
-  const choiceVotes = stat?.choiceVotes ?? []
-  const tier = rarityTier(count, totalBuilds)
-  const rarity = RARITY[tier]
+  const count = stat?.count ?? 0;
+  const choiceVotes = stat?.choiceVotes ?? [];
+  const tier = rarityTier(count, totalBuilds);
+  const rarity = RARITY[tier];
 
   // Search highlight (see TalentTree): dim non-matches, ring matches.
-  const { active: searchActive, matchIds } = useContext(SearchContext)
-  const searchHit    = searchActive && matchIds ? matchIds.has(node.id) : false
-  const searchDimmed = searchActive && matchIds ? !searchHit : false
-  const effOpacity = (b) => (searchDimmed ? Math.min(b, 0.12) : b)
+  const { active: searchActive, matchIds } = useContext(SearchContext);
+  const searchHit = searchActive && matchIds ? matchIds.has(node.id) : false;
+  const searchDimmed = searchActive && matchIds ? !searchHit : false;
+  const effOpacity = (b) => (searchDimmed ? Math.min(b, 0.12) : b);
   const ringShadow = (shadow) =>
-    searchHit ? `${shadow}, 0 0 0 2px rgba(110,200,255,0.95), 0 0 12px rgba(110,200,255,0.55)` : shadow
+    searchHit
+      ? `${shadow}, 0 0 0 2px rgba(110,200,255,0.95), 0 0 12px rgba(110,200,255,0.55)`
+      : shadow;
 
   // ── Choice node ───────────────────────────────────────────────────────────
-  if (node.type === 'choice') {
-    const totalW = CHOICE_ICON * 2 + CHOICE_GAP
+  if (node.type === "choice") {
+    const totalW = CHOICE_ICON * 2 + CHOICE_GAP;
 
     const tipContent = (
       <div className="space-y-1.5 py-0.5" style={{ maxWidth: 240 }}>
         {node.choices.map((ch, i) => {
-          const votes = choiceVotes.filter((v) => v === i).length
+          const votes = choiceVotes.filter((v) => v === i).length;
           return (
             <div key={i}>
               <p className="font-semibold text-xs text-wow-gold">{ch.name}</p>
-              <p className="text-xs text-wow-muted">{votes} / {totalBuilds} builds</p>
+              <p className="text-xs text-wow-muted">
+                {votes} / {totalBuilds} builds
+              </p>
             </div>
-          )
+          );
         })}
       </div>
-    )
+    );
 
     return (
       <div
         style={{
-          position: 'absolute',
+          position: "absolute",
           left: px - totalW / 2,
           top: py - CHOICE_ICON / 2,
         }}
       >
         {/* Icons + rarity ring — Tippy wraps only this area */}
         <Tippy content={tipContent} placement="top" delay={[300, 0]}>
-          <div style={{ position: 'relative', cursor: 'default' }}>
+          <div style={{ position: "relative", cursor: "default" }}>
             <div
               style={{
-                position: 'absolute',
+                position: "absolute",
                 inset: -3,
                 borderRadius: 6,
                 border: `2px solid ${rarity.color}`,
                 boxShadow: ringShadow(`0 0 7px ${rarity.glow}`),
-                pointerEvents: 'none',
+                pointerEvents: "none",
               }}
             />
-            <div style={{ display: 'flex', gap: CHOICE_GAP }}>
+            <div style={{ display: "flex", gap: CHOICE_GAP }}>
               {node.choices.map((ch, i) => {
-                const anyBuildChoseThis = choiceVotes.some((v) => v === i)
+                const anyBuildChoseThis = choiceVotes.some((v) => v === i);
                 return (
                   <div
                     key={i}
@@ -121,9 +141,11 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
                       width: CHOICE_ICON,
                       height: CHOICE_ICON,
                       borderRadius: 3,
-                      overflow: 'hidden',
+                      overflow: "hidden",
                       border: `1.5px solid ${rarity.color}`,
-                      opacity: effOpacity(count === 0 ? 0.12 : anyBuildChoseThis ? 1 : 0.15),
+                      opacity: effOpacity(
+                        count === 0 ? 0.12 : anyBuildChoseThis ? 1 : 0.15,
+                      ),
                       flexShrink: 0,
                     }}
                   >
@@ -135,10 +157,10 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
                       draggable={false}
                       loading="lazy"
                       decoding="async"
-                      style={{ display: 'block' }}
+                      style={{ display: "block" }}
                     />
                   </div>
-                )
+                );
               })}
             </div>
           </div>
@@ -148,51 +170,56 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
         {count > 0 && (
           <div
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: CHOICE_ICON + 3,
               left: 0,
               width: totalW,
-              pointerEvents: 'none',
+              pointerEvents: "none",
             }}
           >
             {choiceVotes.map((vote, bi) => {
-              if (vote === null) return null
-              const iconCenterX = vote === 0
-                ? CHOICE_ICON / 2
-                : CHOICE_ICON + CHOICE_GAP + CHOICE_ICON / 2
+              if (vote === null) return null;
+              const iconCenterX =
+                vote === 0
+                  ? CHOICE_ICON / 2
+                  : CHOICE_ICON + CHOICE_GAP + CHOICE_ICON / 2;
               const sameOptionBefore = choiceVotes
                 .slice(0, bi)
-                .filter((v) => v === vote).length
+                .filter((v) => v === vote).length;
               return (
                 <div
                   key={bi}
                   style={{
-                    position: 'absolute',
+                    position: "absolute",
                     left: iconCenterX - DOT / 2,
                     top: sameOptionBefore * (DOT + DOT_GAP),
                     width: DOT,
                     height: DOT,
-                    borderRadius: '50%',
-                    background: BUILD_COLORS[bi] ?? '#fff',
+                    borderRadius: "50%",
+                    background: BUILD_COLORS[bi] ?? "#fff",
                   }}
                 />
-              )
+              );
             })}
           </div>
         )}
       </div>
-    )
+    );
   }
 
   // ── Apex node ─────────────────────────────────────────────────────────────
-  if (node.type === 'apex') {
-    const S = APEX_ICON
+  if (node.type === "apex") {
+    const S = APEX_ICON;
     return (
       <Tippy
         content={
           <div className="py-0.5" style={{ maxWidth: 280 }}>
-            <p className="font-semibold text-xs text-wow-gold mb-1">{node.name}</p>
-            <p className="text-xs text-wow-muted">{count} / {totalBuilds} builds</p>
+            <p className="font-semibold text-xs text-wow-gold mb-1">
+              {node.name}
+            </p>
+            <p className="text-xs text-wow-muted">
+              {count} / {totalBuilds} builds
+            </p>
           </div>
         }
         placement="top"
@@ -200,18 +227,18 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
       >
         <div
           style={{
-            position: 'absolute',
+            position: "absolute",
             left: px - S / 2,
             top: py - S / 2,
-            cursor: 'default',
+            cursor: "default",
           }}
         >
           <div
             style={{
               width: S,
               height: S,
-              borderRadius: '50%',
-              overflow: 'hidden',
+              borderRadius: "50%",
+              overflow: "hidden",
               border: `2px solid ${rarity.color}`,
               boxShadow: ringShadow(`0 0 7px ${rarity.glow}`),
               opacity: effOpacity(count === 0 ? 0.12 : 1),
@@ -225,17 +252,17 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
               draggable={false}
               loading="lazy"
               decoding="async"
-              style={{ display: 'block' }}
+              style={{ display: "block" }}
             />
           </div>
         </div>
       </Tippy>
-    )
+    );
   }
 
   // ── Round / square node ───────────────────────────────────────────────────
-  const S = ICON
-  const isRound = node.type === 'round'
+  const S = ICON;
+  const isRound = node.type === "round";
 
   return (
     <Tippy
@@ -243,9 +270,13 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
         <div className="py-0.5" style={{ maxWidth: 260 }}>
           <p className="font-semibold text-xs text-wow-gold">{node.name}</p>
           {node.alreadyGranted ? (
-            <p className="text-xs text-wow-dim mt-1 italic">Passive — always active</p>
+            <p className="text-xs text-wow-dim mt-1 italic">
+              Passive — always active
+            </p>
           ) : (
-            <p className="text-xs text-wow-muted mt-0.5">{count} / {totalBuilds} builds</p>
+            <p className="text-xs text-wow-muted mt-0.5">
+              {count} / {totalBuilds} builds
+            </p>
           )}
         </div>
       }
@@ -254,18 +285,18 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
     >
       <div
         style={{
-          position: 'absolute',
+          position: "absolute",
           left: px - S / 2,
           top: py - S / 2,
-          cursor: 'default',
+          cursor: "default",
         }}
       >
         <div
           style={{
             width: S,
             height: S,
-            borderRadius: isRound ? '50%' : 4,
-            overflow: 'hidden',
+            borderRadius: isRound ? "50%" : 4,
+            overflow: "hidden",
             border: `1.5px solid ${rarity.color}`,
             boxShadow: ringShadow(`0 0 7px ${rarity.glow}`),
             opacity: effOpacity(count === 0 ? 0.12 : 1),
@@ -279,33 +310,45 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
             draggable={false}
             loading="lazy"
             decoding="async"
-            style={{ display: 'block' }}
+            style={{ display: "block" }}
           />
         </div>
       </div>
     </Tippy>
-  )
+  );
 }
 
 // ─── Heatmap panel ────────────────────────────────────────────────────────────
 
 function HeatmapPanel({ nodes, nodeById, stats, totalBuilds }) {
-  const { minX, minY, W, H } = useMemo(() => panelBounds(nodes), [nodes])
-  const edges = useMemo(() => panelEdges(nodes, nodeById, minX, minY), [nodes, nodeById, minX, minY])
+  const { minX, minY, W, H } = useMemo(() => panelBounds(nodes), [nodes]);
+  const edges = useMemo(
+    () => panelEdges(nodes, nodeById, minX, minY),
+    [nodes, nodeById, minX, minY],
+  );
 
   return (
-    <div className="wow-subpanel" style={{ position: 'relative', width: W, height: H, flexShrink: 0 }}>
+    <div
+      className="wow-subpanel"
+      style={{ position: "relative", width: W, height: H, flexShrink: 0 }}
+    >
       <svg
         width={W}
         height={H}
-        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          overflow: "visible",
+        }}
       >
         {edges.map((e, i) => {
           const fromPresent =
-            (stats[e.fromId]?.count ?? 0) > 0 || nodeById[e.fromId]?.alreadyGranted
+            (stats[e.fromId]?.count ?? 0) > 0 ||
+            nodeById[e.fromId]?.alreadyGranted;
           const toPresent =
-            (stats[e.toId]?.count ?? 0) > 0 || nodeById[e.toId]?.alreadyGranted
-          const lit = fromPresent && toPresent
+            (stats[e.toId]?.count ?? 0) > 0 || nodeById[e.toId]?.alreadyGranted;
+          const lit = fromPresent && toPresent;
           return (
             <line
               key={i}
@@ -313,10 +356,10 @@ function HeatmapPanel({ nodes, nodeById, stats, totalBuilds }) {
               y1={e.y1}
               x2={e.x2}
               y2={e.y2}
-              stroke={lit ? '#c8a84b' : '#5a4a1e'}
+              stroke={lit ? "#c8a84b" : "#5a4a1e"}
               strokeWidth={lit ? 2 : 1}
             />
-          )
+          );
         })}
       </svg>
 
@@ -331,7 +374,7 @@ function HeatmapPanel({ nodes, nodeById, stats, totalBuilds }) {
         />
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Panel label ──────────────────────────────────────────────────────────────
@@ -341,39 +384,45 @@ function PanelLabel({ children }) {
     <p className="text-wow-gold-dark text-[10px] uppercase tracking-widest mb-1 pl-0.5 select-none">
       {children}
     </p>
-  )
+  );
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function HeatmapTree({ treeData, builds, layout = null }) {
-  const totalBuilds = builds.length
+  const totalBuilds = builds.length;
 
-  const nodeById = useMemo(() => byId(treeData.nodes), [treeData])
+  const nodeById = useMemo(() => byId(treeData.nodes), [treeData]);
 
   const classNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === 'class'),
+    () => treeData.nodes.filter((n) => n.treeType === "class"),
     [treeData],
-  )
+  );
   const specNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === 'spec'),
+    () => treeData.nodes.filter((n) => n.treeType === "spec"),
     [treeData],
-  )
+  );
   const leftNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.heroSubtree === treeData.heroSubtrees.left.name),
+    () =>
+      treeData.nodes.filter(
+        (n) => n.heroSubtree === treeData.heroSubtrees.left.name,
+      ),
     [treeData],
-  )
+  );
   const rightNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.heroSubtree === treeData.heroSubtrees.right.name),
+    () =>
+      treeData.nodes.filter(
+        (n) => n.heroSubtree === treeData.heroSubtrees.right.name,
+      ),
     [treeData],
-  )
+  );
 
   const stats = useMemo(
     () => computeStats(builds, treeData.nodes),
     [builds, treeData],
-  )
+  );
 
-  const sharedPanel = { nodeById, stats, totalBuilds }
+  const sharedPanel = { nodeById, stats, totalBuilds };
 
   return (
     <div>
@@ -381,7 +430,6 @@ export default function HeatmapTree({ treeData, builds, layout = null }) {
 
       <div className="overflow-x-auto pb-1">
         <div className="inline-flex flex-col gap-4 min-w-max">
-
           {/* ── Class + Spec panels (stack when narrow, side by side when wide) ── */}
           <div className={sectionRowClass(layout)}>
             <div>
@@ -389,7 +437,7 @@ export default function HeatmapTree({ treeData, builds, layout = null }) {
               <HeatmapPanel nodes={classNodes} {...sharedPanel} />
             </div>
 
-            <div className={dividerClass(layout, 'mt-5')} />
+            <div className={dividerClass(layout, "mt-5")} />
 
             <div>
               <PanelLabel>Spec</PanelLabel>
@@ -417,9 +465,8 @@ export default function HeatmapTree({ treeData, builds, layout = null }) {
               <HeatmapPanel nodes={rightNodes} {...sharedPanel} />
             </div>
           </div>
-
         </div>
       </div>
     </div>
-  )
+  );
 }

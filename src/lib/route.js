@@ -10,26 +10,26 @@
 // A share in the hash always wins over a spec path (an explicit share link should
 // load its build even if opened from a spec URL).
 
-import classesIndex from '../data/classes.json'
+import classesIndex from "../data/classes.json";
 
-const SHARE_ID_RE = /^[A-Za-z0-9]{6}$/
+const SHARE_ID_RE = /^[A-Za-z0-9]{6}$/;
 
 // slug ("death_knight") ↔ URL segment ("death-knight").
-const toSegment = (slug) => slug.replaceAll('_', '-')
+const toSegment = (slug) => slug.replaceAll("_", "-");
 
 // "<class>/<spec>" segment pair → specId, built once from the class index.
-const SPEC_BY_PATH = new Map()
+const SPEC_BY_PATH = new Map();
 for (const cls of classesIndex) {
-  if (!cls.implemented) continue
+  if (!cls.implemented) continue;
   for (const spec of cls.specs) {
-    SPEC_BY_PATH.set(`${toSegment(cls.name)}/${toSegment(spec.name)}`, spec.id)
+    SPEC_BY_PATH.set(`${toSegment(cls.name)}/${toSegment(spec.name)}`, spec.id);
   }
 }
 
 /** Returns the specId for a "/<class>/<spec>" pathname, or null. */
 export function specIdForPath(pathname) {
-  const key = (pathname || '').replace(/^\/+|\/+$/g, '').toLowerCase()
-  return SPEC_BY_PATH.has(key) ? SPEC_BY_PATH.get(key) : null
+  const key = (pathname || "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  return SPEC_BY_PATH.has(key) ? SPEC_BY_PATH.get(key) : null;
 }
 
 /**
@@ -39,20 +39,24 @@ export function specIdForPath(pathname) {
  *          | { kind: 'spec-page', specId: number }
  *          | { kind: 'local' }}
  */
-export function resolveRoute(location = typeof window !== 'undefined' ? window.location : { hash: '', pathname: '' }) {
-  const hash = (location.hash || '').replace(/^#/, '')
+export function resolveRoute(
+  location = typeof window !== "undefined"
+    ? window.location
+    : { hash: "", pathname: "" },
+) {
+  const hash = (location.hash || "").replace(/^#/, "");
 
-  if (hash.startsWith('b=')) {
-    return { kind: 'client-share', token: hash.slice(2) }
+  if (hash.startsWith("b=")) {
+    return { kind: "client-share", token: hash.slice(2) };
   }
   if (SHARE_ID_RE.test(hash)) {
-    return { kind: 'server-share', id: hash }
+    return { kind: "server-share", id: hash };
   }
 
-  const specId = specIdForPath(location.pathname || '')
+  const specId = specIdForPath(location.pathname || "");
   if (specId != null) {
-    return { kind: 'spec-page', specId }
+    return { kind: "spec-page", specId };
   }
 
-  return { kind: 'local' }
+  return { kind: "local" };
 }

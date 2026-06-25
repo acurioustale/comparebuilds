@@ -1,30 +1,27 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  base: '/',
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  base: "/",
+  plugins: [react(), tailwindcss()],
   test: {
     // Pure-logic suites run in Node; component suites opt into jsdom per-file via
     // a `// @vitest-environment jsdom` pragma at the top of the file.
-    environment: 'node',
+    environment: "node",
     globals: true,
-    setupFiles: ['./src/test/setup.js'],
-    include: ['src/**/*.test.{js,jsx}'],
+    setupFiles: ["./src/test/setup.js"],
+    include: ["src/**/*.test.{js,jsx}"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html'],
+      provider: "v8",
+      reporter: ["text", "html"],
       // Gated scope: the logic layers (exercised without a DOM). Logic lives in
       // lib/ by convention and components stay thin, so this is where the quality
       // bar matters. `all: true` reports untested files at their true numbers.
       all: true,
-      include: ['src/lib/**/*.js', 'src/store/**/*.js'],
-      exclude: ['**/*.test.js', '**/wireLayout.snapshot.json'],
+      include: ["src/lib/**/*.js", "src/store/**/*.js"],
+      exclude: ["**/*.test.js", "**/wireLayout.snapshot.json"],
       // Coverage ratchet: CI runs `npm run coverage`, which fails below these
       // floors. Set a few points under current (stmts 93 / branch 89 / func 92 /
       // lines 95) to absorb normal churn. Raise them as coverage climbs; never lower.
@@ -36,4 +33,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

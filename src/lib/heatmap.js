@@ -10,12 +10,12 @@
  * @param {number} total  total builds compared
  */
 export function rarityTier(count, total) {
-  if (count === 0) return 'poor'
-  const r = count / total
-  if (r === 1.0) return 'legendary'
-  if (r >= 0.75) return 'epic'
-  if (r >= 0.5)  return 'rare'
-  return 'uncommon'
+  if (count === 0) return "poor";
+  const r = count / total;
+  if (r === 1.0) return "legendary";
+  if (r >= 0.75) return "epic";
+  if (r >= 0.5) return "rare";
+  return "uncommon";
 }
 
 /**
@@ -29,29 +29,29 @@ export function rarityTier(count, total) {
  *   choiceVotes: per-build entryChosen (null if that build didn't pick this node)
  */
 export function computeStats(builds, allNodes) {
-  const total = builds.length
-  const stats = {}
+  const total = builds.length;
+  const stats = {};
 
   for (const node of allNodes) {
     if (node.alreadyGranted) {
-      stats[node.id] = { count: total, choiceVotes: builds.map(() => null) }
-      continue
+      stats[node.id] = { count: total, choiceVotes: builds.map(() => null) };
+      continue;
     }
 
-    let count = 0
+    let count = 0;
     const choiceVotes = builds.map((b) => {
-      const sel = b.nodes[node.id]
+      const sel = b.nodes[node.id];
       if (sel) {
-        count++
-        return sel.entryChosen ?? null
+        count++;
+        return sel.entryChosen ?? null;
       }
-      return null
-    })
+      return null;
+    });
 
-    stats[node.id] = { count, choiceVotes }
+    stats[node.id] = { count, choiceVotes };
   }
 
-  return stats
+  return stats;
 }
 
 /**
@@ -59,27 +59,27 @@ export function computeStats(builds, allNodes) {
  * count ranges, for the legend.
  */
 export function computeLegendTiers(n) {
-  if (n === 0) return []
+  if (n === 0) return [];
 
   // Group counts by tier
-  const tierCounts = {}
+  const tierCounts = {};
   for (let c = 0; c <= n; c++) {
-    const t = rarityTier(c, n)
-    if (!tierCounts[t]) tierCounts[t] = []
-    tierCounts[t].push(c)
+    const t = rarityTier(c, n);
+    if (!tierCounts[t]) tierCounts[t] = [];
+    tierCounts[t].push(c);
   }
 
-  const order = ['legendary', 'epic', 'rare', 'uncommon', 'poor']
-  const result = []
+  const order = ["legendary", "epic", "rare", "uncommon", "poor"];
+  const result = [];
 
   for (const tier of order) {
-    const counts = tierCounts[tier]
-    if (!counts) continue
-    const min = Math.min(...counts)
-    const max = Math.max(...counts)
-    const rangeLabel = min === max ? `${min}/${n}` : `${min}–${max}/${n}`
-    result.push({ tier, rangeLabel })
+    const counts = tierCounts[tier];
+    if (!counts) continue;
+    const min = Math.min(...counts);
+    const max = Math.max(...counts);
+    const rangeLabel = min === max ? `${min}/${n}` : `${min}–${max}/${n}`;
+    result.push({ tier, rangeLabel });
   }
 
-  return result
+  return result;
 }

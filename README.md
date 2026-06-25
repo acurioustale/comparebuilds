@@ -6,16 +6,17 @@ WoW talent build comparison tool — deployed at comparebuilds.app.
 
 ### Automated deploys
 
-Pushing to `main` deploys automatically, but only after CI passes. The
-[`deploy` workflow](.github/workflows/deploy.yml) runs when the
-[CI workflow](.github/workflows/ci.yml) completes successfully on `main`, so a
-push that fails lint, coverage, or the build never ships. It can also be
-triggered manually from the Actions tab (which skips the gate). It builds the
-site and runs `deploy.sh`. `deploy.sh` stages the built `dist/` together with the PHP API
+Pushing to `main` deploys automatically, but only after the gate passes. The
+[`deploy` workflow](.github/workflows/deploy.yml) runs its `validate` job first
+(the full quality gate — lint, formatting, the per-language linters, tests, and
+the build) and only then its `deploy` job, which `needs: validate`; a push that
+fails the gate never ships. It can also be triggered manually from the Actions
+tab, with an optional dry-run — manual runs validate first too. The deploy job
+builds the site and runs `deploy.sh`. `deploy.sh` stages the built `dist/` together with the PHP API
 (`api/share.php`, `api/og.php`, `api/fonts/`) into one tree and mirrors it with a
 single `rsync -avz --delete` to the web root:
 
-```
+```text
 web4186@http2.core-networks.de:html/comparebuilds.app/
 ```
 
@@ -27,7 +28,7 @@ CI authenticates with a dedicated SSH deploy key, stored as the repository
 secrets `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS`. The key is harmless if leaked:
 on the host it's pinned to a forced command
 (`~web4186/bin/rsync-jail-comparebuilds.sh`, wired up in that account's
-`authorized_keys`) that allows only an rsync *push* into `html/comparebuilds.app/`
+`authorized_keys`) that allows only an rsync _push_ into `html/comparebuilds.app/`
 — no shell, no pull, and no path traversal outside that directory. This is why
 the deploy target in `deploy.sh` must keep its trailing slash; the jail matches
 on that exact prefix.
@@ -68,7 +69,7 @@ Upload the **contents** of `dist/` to the web root folder (the folder that compa
 
 Expected layout on the server:
 
-```
+```text
 /home/username/
 ├── config.php          ← credentials file, above the web root
 └── www/                ← web root (comparebuilds.app → this folder)
@@ -125,10 +126,10 @@ In your hosting control panel, point the `comparebuilds.app` domain to the web r
 
 `api/share.php` handles short links for sharing builds:
 
-| Method | Parameters | Response |
-|--------|-----------|----------|
-| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names) and `className`/`specName` (≤ 64 chars, used by the OG image). | `{ id }` — 6-char alphanumeric |
-| `GET`  | `?id=xxxxxx` | Stored JSON payload (includes `labels`/`className`/`specName` when they were sent) |
+| Method | Parameters                                                                                                                                                                                                                                      | Response                                                                           |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names) and `className`/`specName` (≤ 64 chars, used by the OG image). | `{ id }` — 6-char alphanumeric                                                     |
+| `GET`  | `?id=xxxxxx`                                                                                                                                                                                                                                    | Stored JSON payload (includes `labels`/`className`/`specName` when they were sent) |
 
 Rows older than 90 days are deleted on each `POST` request.
 
@@ -180,6 +181,30 @@ npm run dev
 
 The PHP API is not available in the local dev server. Sharing links will 404 locally — test that feature on the deployed site.
 
+### Quality gate
+
+`./validate.sh` runs the full CI gate locally, in the same order CI does — lint,
+formatting, the per-language linters, the PHP and shell checks, tests, and the
+build:
+
+```bash
+./validate.sh          # everything CI enforces
+./validate.sh --clean  # reinstall deps with `npm ci` first (matches CI)
+npm run format         # auto-fix formatting (Prettier)
+```
+
+The npm-based tools (ESLint, Prettier, stylelint, markdownlint, svgo, Vitest)
+come with `npm install`. The standalone CLIs are optional locally — `validate.sh`
+skips any that are missing with a notice, and CI pins them — but to run the whole
+gate, install them too:
+
+```bash
+brew install shellcheck shfmt php-cs-fixer phpunit actionlint lychee
+```
+
+Link checking (lychee) runs in its own GitHub workflow, separate from the
+deploy-gating CI; run it locally with `npm run links`.
+
 ## Talent data
 
 The app reads only the normalised JSON in `src/data/` — it never talks to any
@@ -191,7 +216,7 @@ implementation detail behind it.
 
 `src/lib/buildString.js` parses/encodes the game's native talent loadout string
 (the same one the in-game UI and any calculator export). The wire format is fixed
-by the game; only the *node list* depends on the data. Importing and sharing
+by the game; only the _node list_ depends on the data. Importing and sharing
 builds is not tied to any particular data provider.
 
 ### Tests
@@ -218,6 +243,11 @@ correctness — the most important to understand before editing `src/data/`:
 
 The rest cover the store, the diff/heatmap logic, the HTML sanitiser, and the
 React components.
+
+The PHP share API has its own PHPUnit suite in `tests/`, covering the
+public-input validation surface (id format, build-string limits, label/name
+caps, and the client-IP handling). Run it with `phpunit`, or let `./validate.sh`
+run everything — JavaScript, PHP, the linters, and the build — at once.
 
 ### Editing or repopulating the data
 

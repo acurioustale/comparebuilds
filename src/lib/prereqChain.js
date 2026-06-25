@@ -12,7 +12,7 @@
 // deep node is most of the panel — too noisy to read. One hop shows exactly the
 // links that gate (and are gated by) the hovered node.
 
-import { upperParents } from './treeLogic.js'
+import { upperParents } from "./treeLogic.js";
 
 /**
  * @param {number} nodeId   the hovered node
@@ -21,19 +21,19 @@ import { upperParents } from './treeLogic.js'
  * @returns {Set<number>}
  */
 export function prereqChain(nodeId, nodes, nodeById) {
-  const ids = new Set()
-  const start = nodeById[nodeId]
-  if (!start) return ids
+  const ids = new Set();
+  const start = nodeById[nodeId];
+  if (!start) return ids;
 
-  ids.add(nodeId)
+  ids.add(nodeId);
 
   // Direct prerequisites: connected nodes strictly above.
-  for (const parent of upperParents(start, nodeById)) ids.add(parent.id)
+  for (const parent of upperParents(start, nodeById)) ids.add(parent.id);
 
   // Direct dependents: nodes that list the hovered node as an upper parent.
   for (const n of nodes) {
-    if (upperParents(n, nodeById).some((p) => p.id === nodeId)) ids.add(n.id)
+    if (upperParents(n, nodeById).some((p) => p.id === nodeId)) ids.add(n.id);
   }
 
-  return ids
+  return ids;
 }

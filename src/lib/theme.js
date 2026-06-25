@@ -9,24 +9,24 @@
  * `prefers-color-scheme`. Light/dark only — there is no separate "system" state.
  */
 
-export const THEMES = ['dark', 'light']
+export const THEMES = ["dark", "light"];
 
-export const THEME_STORAGE_KEY = 'comparebuilds-theme'
+export const THEME_STORAGE_KEY = "comparebuilds-theme";
 
 // Drives the <meta name="theme-color"> chrome colour per theme.
-export const THEME_COLORS = { dark: '#0d0d14', light: '#f3e7cb' }
+export const THEME_COLORS = { dark: "#0d0d14", light: "#f3e7cb" };
 
 // A persisted value is only honoured if it's one of the explicit themes the user
 // could have chosen; anything else (null, stale, tampered) means "no override".
 export function normalizeStoredTheme(value) {
-  return value === 'light' || value === 'dark' ? value : null
+  return value === "light" || value === "dark" ? value : null;
 }
 
 // The active theme: an explicit stored override wins, otherwise the OS preference.
 export function resolveTheme(stored, prefersLight) {
-  return normalizeStoredTheme(stored) ?? (prefersLight ? 'light' : 'dark')
+  return normalizeStoredTheme(stored) ?? (prefersLight ? "light" : "dark");
 }
 
 export function nextTheme(current) {
-  return current === 'dark' ? 'light' : 'dark'
+  return current === "dark" ? "light" : "dark";
 }

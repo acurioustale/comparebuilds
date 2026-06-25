@@ -17,34 +17,33 @@
  * snapshot test (dataIntegrity.test.js) covers drift of that layout itself.
  */
 
-import { test, describe } from 'vitest'
-import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { test, describe } from "vitest";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import {
   parseBuildString,
   generateBuildString,
   parseSpecId,
   collectClassNodes,
-} from './buildString.js'
+} from "./buildString.js";
 
-const require = createRequire(import.meta.url)
-const classIndex = require('../data/classes.json')
+const require = createRequire(import.meta.url);
+const classIndex = require("../data/classes.json");
 
 // ── Selection builders ────────────────────────────────────────────────────────
 
 /** Every non-granted spec node selected at full rank; choice nodes pick option 0. */
 function fullSelection(specNodes) {
-  const sel = {}
+  const sel = {};
   for (const n of specNodes) {
-    if (n.alreadyGranted) continue
+    if (n.alreadyGranted) continue;
     sel[n.id] = {
-      pointsInvested: n.type === 'choice'
-        ? (n.choices?.[0]?.maxRanks ?? 1)
-        : n.maxRanks,
-      entryChosen: n.type === 'choice' ? 0 : null,
-    }
+      pointsInvested:
+        n.type === "choice" ? (n.choices?.[0]?.maxRanks ?? 1) : n.maxRanks,
+      entryChosen: n.type === "choice" ? 0 : null,
+    };
   }
-  return sel
+  return sel;
 }
 
 /**
@@ -54,80 +53,103 @@ function fullSelection(specNodes) {
  *   - single-rank nodes fully purchased
  */
 function variedSelection(specNodes) {
-  const sel = {}
+  const sel = {};
   for (const n of specNodes) {
-    if (n.alreadyGranted) continue
-    if (n.type === 'choice') {
-      const opt = (n.choices?.length ?? 1) > 1 ? 1 : 0
-      sel[n.id] = { pointsInvested: n.choices?.[opt]?.maxRanks ?? 1, entryChosen: opt }
+    if (n.alreadyGranted) continue;
+    if (n.type === "choice") {
+      const opt = (n.choices?.length ?? 1) > 1 ? 1 : 0;
+      sel[n.id] = {
+        pointsInvested: n.choices?.[opt]?.maxRanks ?? 1,
+        entryChosen: opt,
+      };
     } else if (n.maxRanks > 1) {
-      sel[n.id] = { pointsInvested: 1, entryChosen: null } // partial: 1 of >1
+      sel[n.id] = { pointsInvested: 1, entryChosen: null }; // partial: 1 of >1
     } else {
-      sel[n.id] = { pointsInvested: 1, entryChosen: null }
+      sel[n.id] = { pointsInvested: 1, entryChosen: null };
     }
   }
-  return sel
+  return sel;
 }
 
 /** Asserts two selection maps are exactly equal. */
 function assertSameSelection(actual, expected, label) {
-  const aIds = Object.keys(actual).map(Number).sort((x, y) => x - y)
-  const eIds = Object.keys(expected).map(Number).sort((x, y) => x - y)
-  assert.deepStrictEqual(aIds, eIds, `${label}: selected node IDs differ`)
+  const aIds = Object.keys(actual)
+    .map(Number)
+    .sort((x, y) => x - y);
+  const eIds = Object.keys(expected)
+    .map(Number)
+    .sort((x, y) => x - y);
+  assert.deepStrictEqual(aIds, eIds, `${label}: selected node IDs differ`);
   for (const id of eIds) {
-    assert.strictEqual(actual[id].pointsInvested, expected[id].pointsInvested,
-      `${label}: node ${id} pointsInvested mismatch`)
-    assert.strictEqual(actual[id].entryChosen ?? null, expected[id].entryChosen ?? null,
-      `${label}: node ${id} entryChosen mismatch`)
+    assert.strictEqual(
+      actual[id].pointsInvested,
+      expected[id].pointsInvested,
+      `${label}: node ${id} pointsInvested mismatch`,
+    );
+    assert.strictEqual(
+      actual[id].entryChosen ?? null,
+      expected[id].entryChosen ?? null,
+      `${label}: node ${id} entryChosen mismatch`,
+    );
   }
 }
 
 // ── Per-class round-trip ──────────────────────────────────────────────────────
 
 for (const cls of classIndex.filter((c) => c.implemented)) {
-  const data = require(`../data/${cls.name}.json`)
-  const classNodes = collectClassNodes(data)
+  const data = require(`../data/${cls.name}.json`);
+  const classNodes = collectClassNodes(data);
 
-  test('collectClassNodes is strictly ascending and unique', () => {
+  test("collectClassNodes is strictly ascending and unique", () => {
     for (let i = 1; i < classNodes.length; i++) {
-      assert.ok(classNodes[i].id > classNodes[i - 1].id,
-        `node order not strictly ascending at index ${i}`)
+      assert.ok(
+        classNodes[i].id > classNodes[i - 1].id,
+        `node order not strictly ascending at index ${i}`,
+      );
     }
-  })
+  });
 
   for (const slug of Object.keys(data.specs)) {
-    const spec = data.specs[slug]
-    const specNodes = spec.nodes
+    const spec = data.specs[slug];
+    const specNodes = spec.nodes;
 
     test(`${slug}: full selection round-trips`, () => {
-      const sel = fullSelection(specNodes)
-      const str = generateBuildString(sel, spec.specId, classNodes)
-      const parsed = parseBuildString(str, classNodes)
-      assert.strictEqual(parsed.specId, spec.specId, 'specId mismatch')
-      assertSameSelection(parsed.nodes, sel, `${slug} full`)
-    })
+      const sel = fullSelection(specNodes);
+      const str = generateBuildString(sel, spec.specId, classNodes);
+      const parsed = parseBuildString(str, classNodes);
+      assert.strictEqual(parsed.specId, spec.specId, "specId mismatch");
+      assertSameSelection(parsed.nodes, sel, `${slug} full`);
+    });
 
     test(`${slug}: varied (partial ranks + 2nd choices) round-trips`, () => {
-      const sel = variedSelection(specNodes)
-      const str = generateBuildString(sel, spec.specId, classNodes)
-      const parsed = parseBuildString(str, classNodes)
-      assert.strictEqual(parsed.specId, spec.specId, 'specId mismatch')
-      assertSameSelection(parsed.nodes, sel, `${slug} varied`)
-    })
+      const sel = variedSelection(specNodes);
+      const str = generateBuildString(sel, spec.specId, classNodes);
+      const parsed = parseBuildString(str, classNodes);
+      assert.strictEqual(parsed.specId, spec.specId, "specId mismatch");
+      assertSameSelection(parsed.nodes, sel, `${slug} varied`);
+    });
 
     test(`${slug}: parseSpecId reads the header from a generated string`, () => {
-      const str = generateBuildString(fullSelection(specNodes), spec.specId, classNodes)
-      const { specId, version } = parseSpecId(str)
-      assert.strictEqual(specId, spec.specId, 'header specId mismatch')
-      assert.ok(Number.isInteger(version), 'version should be an integer')
-    })
+      const str = generateBuildString(
+        fullSelection(specNodes),
+        spec.specId,
+        classNodes,
+      );
+      const { specId, version } = parseSpecId(str);
+      assert.strictEqual(specId, spec.specId, "header specId mismatch");
+      assert.ok(Number.isInteger(version), "version should be an integer");
+    });
 
     test(`${slug}: empty selection round-trips to nothing`, () => {
-      const str = generateBuildString({}, spec.specId, classNodes)
-      const parsed = parseBuildString(str, classNodes)
-      assert.strictEqual(parsed.specId, spec.specId)
-      assert.strictEqual(Object.keys(parsed.nodes).length, 0, 'expected no selected nodes')
-    })
+      const str = generateBuildString({}, spec.specId, classNodes);
+      const parsed = parseBuildString(str, classNodes);
+      assert.strictEqual(parsed.specId, spec.specId);
+      assert.strictEqual(
+        Object.keys(parsed.nodes).length,
+        0,
+        "expected no selected nodes",
+      );
+    });
   }
 }
 
@@ -135,86 +157,97 @@ for (const cls of classIndex.filter((c) => c.implemented)) {
 // A truncated or corrupt string must fail loudly, never return garbage — the
 // store relies on these throws to mark a build as "failed to parse".
 
-describe('error handling', () => {
-  const TINY = [{ id: 1, maxRanks: 1, choices: null }]
+describe("error handling", () => {
+  const TINY = [{ id: 1, maxRanks: 1, choices: null }];
 
-  test('parseBuildString rejects a non-string', () => {
-    assert.throws(() => parseBuildString(null, TINY), TypeError)
-    assert.throws(() => parseBuildString('', TINY), /non-empty string/)
-  })
+  test("parseBuildString rejects a non-string", () => {
+    assert.throws(() => parseBuildString(null, TINY), TypeError);
+    assert.throws(() => parseBuildString("", TINY), /non-empty string/);
+  });
 
-  test('parseBuildString rejects an empty / non-array node list', () => {
-    assert.throws(() => parseBuildString('AAAAAAAA', []), /non-empty array/)
-    assert.throws(() => parseBuildString('AAAAAAAA', null), /non-empty array/)
-  })
+  test("parseBuildString rejects an empty / non-array node list", () => {
+    assert.throws(() => parseBuildString("AAAAAAAA", []), /non-empty array/);
+    assert.throws(() => parseBuildString("AAAAAAAA", null), /non-empty array/);
+  });
 
-  test('parseBuildString throws on an invalid base64 character', () => {
-    assert.throws(() => parseBuildString('@@@@@@', TINY), /Invalid character/)
-  })
+  test("parseBuildString throws on an invalid base64 character", () => {
+    assert.throws(() => parseBuildString("@@@@@@", TINY), /Invalid character/);
+  });
 
-  test('parseBuildString throws when the stream is exhausted (truncated)', () => {
+  test("parseBuildString throws when the stream is exhausted (truncated)", () => {
     // 'CA' = a valid v2 version byte (so it passes the version gate) but only
     // 12 bits total, while the header needs 24 — runs out mid-header.
-    assert.throws(() => parseBuildString('CA', TINY), /exhausted/)
-  })
+    assert.throws(() => parseBuildString("CA", TINY), /exhausted/);
+  });
 
-  test('parseBuildString rejects an unsupported serialisation version', () => {
+  test("parseBuildString rejects an unsupported serialisation version", () => {
     // 'AA' decodes to version 0; only version 2 is supported.
-    assert.throws(() => parseBuildString('AAAAAAAA', TINY), /Unsupported build string version 0/)
-  })
+    assert.throws(
+      () => parseBuildString("AAAAAAAA", TINY),
+      /Unsupported build string version 0/,
+    );
+  });
 
-  test('parseSpecId rejects an unsupported serialisation version', () => {
-    assert.throws(() => parseSpecId('AAAAAAAA'), /Unsupported build string version 0/)
-  })
+  test("parseSpecId rejects an unsupported serialisation version", () => {
+    assert.throws(
+      () => parseSpecId("AAAAAAAA"),
+      /Unsupported build string version 0/,
+    );
+  });
 
-  test('parseSpecId rejects a non-string', () => {
-    assert.throws(() => parseSpecId(undefined), /non-empty string/)
-  })
+  test("parseSpecId rejects a non-string", () => {
+    assert.throws(() => parseSpecId(undefined), /non-empty string/);
+  });
 
-  test('parseSpecId throws when too short for the 24-bit header', () => {
-    assert.throws(() => parseSpecId('A'), /exhausted/)
-  })
+  test("parseSpecId throws when too short for the 24-bit header", () => {
+    assert.throws(() => parseSpecId("A"), /exhausted/);
+  });
 
-  test('a generated string survives padding being stripped', () => {
+  test("a generated string survives padding being stripped", () => {
     // BitReader strips trailing "=" — make sure a padded string still parses.
-    const data = require('../data/death_knight.json')
-    const nodes = collectClassNodes(data)
-    const str = generateBuildString({}, data.specs.blood.specId, nodes)
-    assert.strictEqual(parseSpecId(str + '==').specId, data.specs.blood.specId)
-  })
-})
+    const data = require("../data/death_knight.json");
+    const nodes = collectClassNodes(data);
+    const str = generateBuildString({}, data.specs.blood.specId, nodes);
+    assert.strictEqual(parseSpecId(str + "==").specId, data.specs.blood.specId);
+  });
+});
 
 // ── Hardening against corrupt input ───────────────────────────────────────────
 
-describe('parseBuildString clamps an over-max partial rank', () => {
-  const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+describe("parseBuildString clamps an over-max partial rank", () => {
+  const CHARSET =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   // LSB-first bit packing, mirroring the encoder, so we can hand-craft a stream
   // the encoder itself would never emit (a partial rank above the node's max).
-  const pushInt = (bits, value, count) => { for (let i = 0; i < count; i++) bits.push((value >> i) & 1) }
+  const pushInt = (bits, value, count) => {
+    for (let i = 0; i < count; i++) bits.push((value >> i) & 1);
+  };
   const bitsToStr = (bits) => {
-    const b = [...bits]
-    while (b.length % 6 !== 0) b.push(0)
-    let out = ''
+    const b = [...bits];
+    while (b.length % 6 !== 0) b.push(0);
+    let out = "";
     for (let i = 0; i < b.length; i += 6) {
-      let v = 0
-      for (let j = 0; j < 6; j++) v |= b[i + j] << j
-      out += CHARSET[v]
+      let v = 0;
+      for (let j = 0; j < 6; j++) v |= b[i + j] << j;
+      out += CHARSET[v];
     }
-    return out
-  }
+    return out;
+  };
 
-  test('a partial value beyond maxRanks is capped to the node max', () => {
-    const bits = []
-    pushInt(bits, 2, 8)    // version
-    pushInt(bits, 250, 16) // specId
-    for (let i = 0; i < 128; i++) bits.push(0) // hash
+  test("a partial value beyond maxRanks is capped to the node max", () => {
+    const bits = [];
+    pushInt(bits, 2, 8); // version
+    pushInt(bits, 250, 16); // specId
+    for (let i = 0; i < 128; i++) bits.push(0); // hash
     // One node (id 100, maxRanks 5): selected, purchased, partially-ranked with a
     // corrupt rank of 63, non-choice.
-    bits.push(1, 1, 1)
-    pushInt(bits, 63, 6)
-    bits.push(0)
+    bits.push(1, 1, 1);
+    pushInt(bits, 63, 6);
+    bits.push(0);
 
-    const parsed = parseBuildString(bitsToStr(bits), [{ id: 100, maxRanks: 5, choices: null }])
-    assert.strictEqual(parsed.nodes[100].pointsInvested, 5)
-  })
-})
+    const parsed = parseBuildString(bitsToStr(bits), [
+      { id: 100, maxRanks: 5, choices: null },
+    ]);
+    assert.strictEqual(parsed.nodes[100].pointsInvested, 5);
+  });
+});

@@ -11,18 +11,20 @@
  * @returns {Set<number>}
  */
 export function matchNodeIds(query, nodes) {
-  const q = (query ?? '').trim().toLowerCase()
-  const ids = new Set()
-  if (q.length === 0 || !Array.isArray(nodes)) return ids
+  const q = (query ?? "").trim().toLowerCase();
+  const ids = new Set();
+  if (q.length === 0 || !Array.isArray(nodes)) return ids;
 
   for (const n of nodes) {
-    const names = [n.name]
+    const names = [n.name];
     if (Array.isArray(n.choices)) {
-      for (const c of n.choices) names.push(c?.name)
+      for (const c of n.choices) names.push(c?.name);
     }
-    if (names.some((nm) => typeof nm === 'string' && nm.toLowerCase().includes(q))) {
-      ids.add(n.id)
+    if (
+      names.some((nm) => typeof nm === "string" && nm.toLowerCase().includes(q))
+    ) {
+      ids.add(n.id);
     }
   }
-  return ids
+  return ids;
 }

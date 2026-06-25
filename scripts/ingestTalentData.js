@@ -17,36 +17,42 @@
  *   src/data/{class_slug}.json     — normalised tree per class (all specs)
  */
 
-import { writeFileSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { validateClassData } from '../src/lib/validateClassData.js'
-import { wireLayout } from '../src/lib/wireLayout.js'
-import { sanitizeDescription } from '../src/lib/sanitizeDescription.js'
+import { writeFileSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { validateClassData } from "../src/lib/validateClassData.js";
+import { wireLayout } from "../src/lib/wireLayout.js";
+import { sanitizeDescription } from "../src/lib/sanitizeDescription.js";
 
-const BASE_URL = 'https://static.icy-veins.com/json/midnight-talent-calculator'
-const VERSION = 46
+const BASE_URL = "https://static.icy-veins.com/json/midnight-talent-calculator";
+const VERSION = 46;
 
 // Base talent point budgets for the Midnight expansion (from the levelling system).
 // Levels 10-70 alternate class/spec → 31 class + 30 spec.
 // Levels 71+ cycle across all three trees; class reaches 34, spec base 30, last hero point at 89.
 // spec and hero are overridden by normaliseSpec at runtime (spec adds apex ranks; hero counts
 // non-alreadyGranted hero nodes per subtree). alreadyGranted nodes are bonus and not counted.
-const POINT_BUDGET = { class: 34, spec: 30, hero: 0 }
+const POINT_BUDGET = { class: 34, spec: 30, hero: 0 };
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const OUT_DIR = join(__dirname, '..', 'src', 'data')
-const SNAPSHOT_PATH = join(__dirname, '..', 'src', 'lib', 'wireLayout.snapshot.json')
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const OUT_DIR = join(__dirname, "..", "src", "data");
+const SNAPSHOT_PATH = join(
+  __dirname,
+  "..",
+  "src",
+  "lib",
+  "wireLayout.snapshot.json",
+);
 
 // ---------------------------------------------------------------------------
 // Fetch helpers
 // ---------------------------------------------------------------------------
 
 async function fetchJson(path) {
-  const url = `${BASE_URL}/${path}?v=${VERSION}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`)
-  return res.json()
+  const url = `${BASE_URL}/${path}?v=${VERSION}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -64,15 +70,15 @@ async function fetchJson(path) {
  * @param {string|null} heroSubtree - Name of the hero subtree ("Deathbringer", etc.)
  */
 function normaliseNode(raw, treeType, heroSubtree = null) {
-  const isChoice = raw.type === 'choice'
-  const spell = raw.spells[0]
+  const isChoice = raw.type === "choice";
+  const spell = raw.spells[0];
 
   const node = {
     id: raw.id,
-    type: raw.type,           // 'round' | 'square' | 'choice'
-    treeType,                  // 'class' | 'spec' | 'hero'
-    posX: raw.column,          // grid column (integers, scale in UI)
-    posY: raw.row,             // grid row
+    type: raw.type, // 'round' | 'square' | 'choice'
+    treeType, // 'class' | 'spec' | 'hero'
+    posX: raw.column, // grid column (integers, scale in UI)
+    posY: raw.row, // grid row
     connections: raw.previousNodeIds,
     spentRequired: raw.spentAmountRequired ?? 0,
     alreadyGranted: raw.alreadyMaxedOut ?? false,
@@ -91,11 +97,11 @@ function normaliseNode(raw, treeType, heroSubtree = null) {
           maxRanks: s.maxRanks,
         }))
       : null,
-  }
+  };
 
-  if (heroSubtree !== null) node.heroSubtree = heroSubtree
+  if (heroSubtree !== null) node.heroSubtree = heroSubtree;
 
-  return node
+  return node;
 }
 
 /**
@@ -107,15 +113,15 @@ function normaliseNode(raw, treeType, heroSubtree = null) {
  * @param {object[]} specNodes - raw spec node values (for position derivation)
  */
 function normaliseApexNode(raw, specNodes) {
-  const rows = specNodes.map((n) => n.row)
-  const cols = specNodes.map((n) => n.column)
-  const posY = Math.max(...rows) + 2
-  const posX = Math.round((Math.min(...cols) + Math.max(...cols)) / 2)
+  const rows = specNodes.map((n) => n.row);
+  const cols = specNodes.map((n) => n.column);
+  const posY = Math.max(...rows) + 2;
+  const posX = Math.round((Math.min(...cols) + Math.max(...cols)) / 2);
 
   return {
     id: raw.id,
-    type: 'apex',
-    treeType: 'spec',
+    type: "apex",
+    treeType: "spec",
     posX,
     posY,
     connections: [],
@@ -134,7 +140,7 @@ function normaliseApexNode(raw, specNodes) {
       description: sanitizeDescription(s.description),
       maxRanks: s.maxRanks,
     })),
-  }
+  };
 }
 
 /**
@@ -144,30 +150,35 @@ function normaliseApexNode(raw, specNodes) {
  * @param {object} specInfo  - The spec entry from classes_basic_info.json
  */
 function normaliseSpec(specRaw, specInfo) {
-  const nodes = []
+  const nodes = [];
 
   for (const raw of Object.values(specRaw.classNodes)) {
-    nodes.push(normaliseNode(raw, 'class'))
+    nodes.push(normaliseNode(raw, "class"));
   }
 
   for (const raw of Object.values(specRaw.specNodes)) {
-    nodes.push(normaliseNode(raw, 'spec'))
+    nodes.push(normaliseNode(raw, "spec"));
   }
 
   // Apex node — placed below the spec grid
-  const apexNode = normaliseApexNode(specRaw.apexNode, Object.values(specRaw.specNodes))
-  nodes.push(apexNode)
+  const apexNode = normaliseApexNode(
+    specRaw.apexNode,
+    Object.values(specRaw.specNodes),
+  );
+  nodes.push(apexNode);
 
   // Hero nodes — two mutually exclusive subtrees
-  for (const side of ['left', 'right']) {
-    const subtree = specRaw.hero[side]
+  for (const side of ["left", "right"]) {
+    const subtree = specRaw.hero[side];
     for (const raw of Object.values(subtree.nodes)) {
-      nodes.push(normaliseNode(raw, 'hero', subtree.name))
+      nodes.push(normaliseNode(raw, "hero", subtree.name));
     }
   }
 
   // Hero budget = spendable nodes per subtree (excludes the alreadyGranted root node)
-  const heroBudget = Object.values(specRaw.hero.left.nodes).filter((n) => !n.alreadyMaxedOut).length
+  const heroBudget = Object.values(specRaw.hero.left.nodes).filter(
+    (n) => !n.alreadyMaxedOut,
+  ).length;
 
   return {
     specId: specRaw.id,
@@ -180,7 +191,11 @@ function normaliseSpec(specRaw, specInfo) {
     // see src/lib/sanitizeDescription.js "SCOPE".
     description: specInfo.description,
     // Budgets derived from tree structure rather than hardcoded
-    pointBudget: { ...POINT_BUDGET, spec: POINT_BUDGET.spec + apexNode.maxRanks, hero: heroBudget },
+    pointBudget: {
+      ...POINT_BUDGET,
+      spec: POINT_BUDGET.spec + apexNode.maxRanks,
+      hero: heroBudget,
+    },
     checkpoints: {
       class: specRaw.classCheckpoints,
       spec: specRaw.specCheckpoints,
@@ -201,7 +216,7 @@ function normaliseSpec(specRaw, specInfo) {
       },
     },
     nodes,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -209,8 +224,8 @@ function normaliseSpec(specRaw, specInfo) {
 // ---------------------------------------------------------------------------
 
 function writeJson(filename, data) {
-  const dest = join(OUT_DIR, filename)
-  writeFileSync(dest, JSON.stringify(data, null, 2), 'utf8')
+  const dest = join(OUT_DIR, filename);
+  writeFileSync(dest, JSON.stringify(data, null, 2), "utf8");
 }
 
 // ---------------------------------------------------------------------------
@@ -218,13 +233,13 @@ function writeJson(filename, data) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  mkdirSync(OUT_DIR, { recursive: true })
+  mkdirSync(OUT_DIR, { recursive: true });
 
-  let validationFailures = 0
-  const builtClasses = {}
+  let validationFailures = 0;
+  const builtClasses = {};
 
-  console.log('Fetching class index…')
-  const classInfoList = await fetchJson('classes_basic_info.json')
+  console.log("Fetching class index…");
+  const classInfoList = await fetchJson("classes_basic_info.json");
 
   // classes.json — lightweight index, no tree data
   const classIndex = classInfoList.map((cls) => ({
@@ -242,29 +257,31 @@ async function main() {
       color: s.color,
       description: s.description,
     })),
-  }))
+  }));
 
-  writeJson('classes.json', classIndex)
-  console.log('  → src/data/classes.json')
+  writeJson("classes.json", classIndex);
+  console.log("  → src/data/classes.json");
 
   // Per-class files
   for (const cls of classInfoList) {
     if (!cls.implemented) {
-      console.log(`  skipping ${cls.displayName} (not implemented)`)
-      continue
+      console.log(`  skipping ${cls.displayName} (not implemented)`);
+      continue;
     }
 
-    process.stdout.write(`Fetching ${cls.displayName}… `)
-    const classRaw = await fetchJson(`${cls.name}.json`)
+    process.stdout.write(`Fetching ${cls.displayName}… `);
+    const classRaw = await fetchJson(`${cls.name}.json`);
 
-    const specs = {}
+    const specs = {};
     for (const specInfo of cls.specializations) {
-      const specRaw = classRaw.specs[specInfo.name]
+      const specRaw = classRaw.specs[specInfo.name];
       if (!specRaw) {
-        console.warn(`  WARNING: no tree data for ${cls.displayName} / ${specInfo.displayName}`)
-        continue
+        console.warn(
+          `  WARNING: no tree data for ${cls.displayName} / ${specInfo.displayName}`,
+        );
+        continue;
       }
-      specs[specInfo.name] = normaliseSpec(specRaw, specInfo)
+      specs[specInfo.name] = normaliseSpec(specRaw, specInfo);
     }
 
     const classData = {
@@ -279,39 +296,49 @@ async function main() {
       // strings or the per-node bit positions will be wrong.
       unusedNodeIds: classRaw.unusedNodeIds ?? [],
       specs,
-    }
+    };
 
     // Validate before writing so a source/schema drift fails the ingest loudly
     // rather than shipping broken data the app can't read.
-    const problems = validateClassData(classData, classIndex.find((c) => c.id === cls.id))
+    const problems = validateClassData(
+      classData,
+      classIndex.find((c) => c.id === cls.id),
+    );
     if (problems.length > 0) {
-      console.error(`✗ validation failed (${problems.length})`)
-      for (const p of problems) console.error(`      - ${p}`)
-      validationFailures += problems.length
+      console.error(`✗ validation failed (${problems.length})`);
+      for (const p of problems) console.error(`      - ${p}`);
+      validationFailures += problems.length;
     }
 
-    writeJson(`${cls.name}.json`, classData)
-    builtClasses[cls.name] = classData
-    console.log(`→ src/data/${cls.name}.json`)
+    writeJson(`${cls.name}.json`, classData);
+    builtClasses[cls.name] = classData;
+    console.log(`→ src/data/${cls.name}.json`);
   }
 
   if (validationFailures > 0) {
-    console.error(`\n✗ ${validationFailures} validation problem(s) — data written for inspection, ` +
-      `but the wire-layout snapshot was NOT updated. Fix the source/normaliser and re-run.`)
-    process.exit(1)
+    console.error(
+      `\n✗ ${validationFailures} validation problem(s) — data written for inspection, ` +
+        `but the wire-layout snapshot was NOT updated. Fix the source/normaliser and re-run.`,
+    );
+    process.exit(1);
   }
 
   // Refresh the wire-layout snapshot so the integrity test reflects this ingest.
   // The diff makes any build-string-breaking change visible in review.
-  const snapshot = {}
-  for (const name of Object.keys(builtClasses)) snapshot[name] = wireLayout(builtClasses[name])
-  writeFileSync(SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2) + '\n', 'utf8')
-  console.log('→ src/lib/wireLayout.snapshot.json')
+  const snapshot = {};
+  for (const name of Object.keys(builtClasses))
+    snapshot[name] = wireLayout(builtClasses[name]);
+  writeFileSync(
+    SNAPSHOT_PATH,
+    JSON.stringify(snapshot, null, 2) + "\n",
+    "utf8",
+  );
+  console.log("→ src/lib/wireLayout.snapshot.json");
 
-  console.log('\nDone.')
+  console.log("\nDone.");
 }
 
 main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+  console.error(err);
+  process.exit(1);
+});
