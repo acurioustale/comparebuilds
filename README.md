@@ -6,12 +6,13 @@ WoW talent build comparison tool — deployed at comparebuilds.app.
 
 ### Automated deploys
 
-Pushing to `main` deploys automatically, but only after CI passes. The
-[`deploy` workflow](.github/workflows/deploy.yml) runs when the
-[CI workflow](.github/workflows/ci.yml) completes successfully on `main`, so a
-push that fails lint, coverage, or the build never ships. It can also be
-triggered manually from the Actions tab (which skips the gate). It builds the
-site and runs `deploy.sh`. `deploy.sh` stages the built `dist/` together with the PHP API
+Pushing to `main` deploys automatically, but only after the gate passes. The
+[`deploy` workflow](.github/workflows/deploy.yml) runs its `validate` job first
+(the full quality gate — lint, formatting, the per-language linters, tests, and
+the build) and only then its `deploy` job, which `needs: validate`; a push that
+fails the gate never ships. It can also be triggered manually from the Actions
+tab, with an optional dry-run — manual runs validate first too. The deploy job
+builds the site and runs `deploy.sh`. `deploy.sh` stages the built `dist/` together with the PHP API
 (`api/share.php`, `api/og.php`, `api/fonts/`) into one tree and mirrors it with a
 single `rsync -avz --delete` to the web root:
 

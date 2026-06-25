@@ -1,8 +1,8 @@
-name: Links
+name: links
 
-# Link checking lives in its own workflow ON PURPOSE: deploy is gated on the CI
-# workflow only (see deploy.yml), so a dead external link or a momentary
-# rate-limit surfaces here without ever blocking a release. The weekly schedule
+# Link checking lives in its own workflow ON PURPOSE: the deploy workflow's
+# `validate` gate is what blocks a release, so a dead external link or a momentary
+# rate-limit surfaces here without ever blocking deploy. The weekly schedule
 # catches link rot; the PR trigger catches links broken by a change.
 on:
   pull_request:
@@ -10,8 +10,11 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
-  lychee:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -1,27 +1,92 @@
-name: Deploy
+name: deploy
 
-# Deploy only after CI succeeds. The push-triggered build is owned by the CI
-# workflow; this one runs when that workflow completes on main, and the job guard
-# below gates on its success so a failing lint/coverage/build never ships.
-# workflow_dispatch stays for manual deploys (which skip the gate).
+# Validate, then deploy, in one workflow. `validate` is the full quality gate
+# (mirrors validate.sh) and is the required status check; `deploy` depends on it,
+# so a red gate never ships. Deploy runs on pushes to main and manual dispatch,
+# and is skipped on pull requests (where only the gate runs).
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
-
-# Serialize deploys: never let two runs rsync to the host at the same time.
-# Queue rather than cancel so an in-flight deploy always finishes cleanly.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+    inputs:
+      dry_run:
+        description: "Preview changes without writing (rsync --dry-run)"
+        type: boolean
+        default: false
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
-    # Manual dispatch always deploys; a CI-triggered run only when CI passed.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Shell scripts (shellcheck + shfmt)
+        run: |
+          shellcheck ./*.sh
+          curl -sSfL https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64 -o /tmp/shfmt
+          chmod +x /tmp/shfmt
+          /tmp/shfmt -d ./*.sh
+
+      # The runner's default PHP (8.3) is older than PHPUnit 13 needs (>= 8.4.1),
+      # so pin it. This also makes php-cs-fixer and php -l run on a fixed version.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+
+      - name: PHP (syntax, format, tests)
+        run: |
+          for f in $(git ls-files '*.php' '*.php.example'); do php -l "$f"; done
+          curl -sSfL https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/releases/download/v3.95.10/php-cs-fixer.phar -o /tmp/php-cs-fixer
+          php /tmp/php-cs-fixer fix --dry-run --config .php-cs-fixer.dist.php
+          curl -sSfL https://phar.phpunit.de/phpunit-13.2.1.phar -o /tmp/phpunit
+          php /tmp/phpunit
+
+      - name: Workflows (actionlint)
+        run: |
+          curl -sSfL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar xz actionlint
+          ./actionlint
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint CSS
+        run: npm run lint:css
+
+      - name: Lint Markdown
+        run: npm run lint:md
+
+      - name: Check SVG (svgo)
+        run: npm run lint:svg
+
+      - name: Run tests with coverage thresholds
+        run: npm run coverage
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Serialize deploys: never let two runs rsync to the host at once. Queue
+    # rather than cancel so an in-flight deploy always finishes cleanly.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
@@ -64,4 +129,4 @@ jobs:
           chmod 600 ~/.ssh/config
 
       - name: Deploy
-        run: ./deploy.sh
+        run: ./deploy.sh ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
