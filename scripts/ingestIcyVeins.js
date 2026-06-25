@@ -1,13 +1,18 @@
 /**
- * ingestTalentData.js
- * -------------------
+ * ingestIcyVeins.js
+ * -----------------
  * Fetches talent tree data from Icy Veins' CDN and writes normalised JSON
  * to src/data/ (one file per class + classes.json index).
  *
- * Run:
- *   node scripts/ingestTalentData.js
+ * This is the Icy Veins ingest. The script is named for its source so a future
+ * importer for a different source (e.g. ingestWowhead.js, ingestBlizzard.js)
+ * can live alongside it — each fetches its own format and emits the same schema
+ * (enforced by src/lib/validateClassData.js), so src/data/ stays the contract.
  *
- * To target a different source or version:
+ * Run:
+ *   node scripts/ingestIcyVeins.js
+ *
+ * To target a different Icy Veins source or version:
  *   1. Change BASE_URL to any host that serves the same JSON shape.
  *   2. Bump VERSION to match the ?v= query param the server expects.
  *   3. If the host requires auth, add headers to the fetchJson() call.
