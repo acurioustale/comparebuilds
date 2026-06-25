@@ -349,6 +349,19 @@ function useShareRehydration() {
     if (hasRehydrated.current) return;
     hasRehydrated.current = true;
 
+    // Map shared slot names back onto the builds that actually landed. addBuild
+    // silently skips duplicates and spec mismatches, so applying the names
+    // positionally would shift every later name onto the wrong build once a slot
+    // is skipped — key by the build string instead, which survives reordering and
+    // de-duplication.
+    const applyAlignedNames = (builds, names) => {
+      if (!names?.some(Boolean)) return;
+      const nameByBuild = new Map(builds.map((b, i) => [b, names[i] ?? ""]));
+      const landed = useBuildsStore.getState().buildStrings;
+      const aligned = landed.map((b) => nameByBuild.get(b) ?? "");
+      if (aligned.some(Boolean)) setBuildNames(aligned);
+    };
+
     const route = resolveRoute();
 
     // No share in the URL: restore whatever was autosaved to localStorage. The
@@ -385,7 +398,7 @@ function useShareRehydration() {
         for (const buildString of decoded.builds) {
           await addBuild(buildString);
         }
-        if (decoded.names.some(Boolean)) setBuildNames(decoded.names);
+        applyAlignedNames(decoded.builds, decoded.names);
         history.replaceState(null, "", window.location.pathname);
       })();
       return;
@@ -411,8 +424,10 @@ function useShareRehydration() {
         for (const buildString of data.builds) {
           await addBuild(buildString);
         }
-        if (Array.isArray(data.labels) && data.labels.some(Boolean))
-          setBuildNames(data.labels);
+        applyAlignedNames(
+          data.builds,
+          Array.isArray(data.labels) ? data.labels : [],
+        );
         // Remove hash so it doesn't re-trigger on manual reload
         history.replaceState(null, "", window.location.pathname);
       } catch {
