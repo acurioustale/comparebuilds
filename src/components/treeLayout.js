@@ -44,6 +44,22 @@ export function byId(nodes) {
 }
 
 /**
+ * Splits a spec's nodes into the four rendered sections — class, spec, and the two
+ * hero subtrees. Shared by TalentTree, HeatmapTree and SideBySideDiff so the three
+ * renderers can't drift on how a node is bucketed.
+ * @returns {{ classNodes: object[], specNodes: object[], leftNodes: object[], rightNodes: object[] }}
+ */
+export function splitSections(treeData) {
+  const { nodes, heroSubtrees } = treeData;
+  return {
+    classNodes: nodes.filter((n) => n.treeType === "class"),
+    specNodes: nodes.filter((n) => n.treeType === "spec"),
+    leftNodes: nodes.filter((n) => n.heroSubtree === heroSubtrees.left.name),
+    rightNodes: nodes.filter((n) => n.heroSubtree === heroSubtrees.right.name),
+  };
+}
+
+/**
  * Pixel bounds of a panel's node grid.
  * @returns {{ minX: number, minY: number, W: number, H: number }}
  */

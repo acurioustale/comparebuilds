@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { TreePanel } from "./TalentTree";
 import { computeDiff, selectionLabel } from "../lib/diff";
-import { byId } from "./treeLayout";
+import { byId, splitSections } from "./treeLayout";
 import { activeHeroSubtree } from "../lib/spendRules";
 import { computeInvalidNodeIds, buildGrantedSeed } from "../lib/treeLogic";
 
@@ -200,24 +200,12 @@ export default function SideBySideDiff({
 
   const nodeById = useMemo(() => byId(treeData.nodes), [treeData]);
 
-  const classNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "class"),
-    [treeData],
-  );
-  const specNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "spec"),
+  const { classNodes, specNodes, leftNodes, rightNodes } = useMemo(
+    () => splitSections(treeData),
     [treeData],
   );
   const leftName = treeData.heroSubtrees.left.name;
   const rightName = treeData.heroSubtrees.right.name;
-  const leftNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.heroSubtree === leftName),
-    [treeData, leftName],
-  );
-  const rightNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.heroSubtree === rightName),
-    [treeData, rightName],
-  );
 
   const activeA = activeHeroSubtree(treeData.nodes, buildA.nodes);
   const activeB = activeHeroSubtree(treeData.nodes, buildB.nodes);

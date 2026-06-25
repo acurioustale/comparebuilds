@@ -1,8 +1,8 @@
-import { useMemo, useContext } from "react";
+import { useMemo } from "react";
 import Tippy from "@tippyjs/react";
 import "tippy.js/dist/tippy.css";
 import { iconUrl, onIconError } from "../lib/iconUrl";
-import { SearchContext } from "./SearchContext";
+import { useSearchHighlight } from "./SearchContext";
 import { rarityTier, computeStats, computeLegendTiers } from "../lib/heatmap";
 import {
   CELL,
@@ -14,6 +14,7 @@ import {
   byId,
   panelBounds,
   panelEdges,
+  splitSections,
   sectionRowClass,
   dividerClass,
 } from "./treeLayout";
@@ -81,14 +82,9 @@ function HeatmapNode({ node, px, py, stat, totalBuilds }) {
   const rarity = RARITY[tier];
 
   // Search highlight (see TalentTree): dim non-matches, ring matches.
-  const { active: searchActive, matchIds } = useContext(SearchContext);
-  const searchHit = searchActive && matchIds ? matchIds.has(node.id) : false;
-  const searchDimmed = searchActive && matchIds ? !searchHit : false;
-  const effOpacity = (b) => (searchDimmed ? Math.min(b, 0.12) : b);
+  const { effOpacity, searchRing } = useSearchHighlight(node.id);
   const ringShadow = (shadow) =>
-    searchHit
-      ? `${shadow}, 0 0 0 2px rgba(110,200,255,0.95), 0 0 12px rgba(110,200,255,0.55)`
-      : shadow;
+    searchRing ? `${shadow}, ${searchRing}` : shadow;
 
   // ── Choice node ───────────────────────────────────────────────────────────
   if (node.type === "choice") {
@@ -397,26 +393,8 @@ export default function HeatmapTree({ treeData, builds, layout = null }) {
 
   const nodeById = useMemo(() => byId(treeData.nodes), [treeData]);
 
-  const classNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "class"),
-    [treeData],
-  );
-  const specNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "spec"),
-    [treeData],
-  );
-  const leftNodes = useMemo(
-    () =>
-      treeData.nodes.filter(
-        (n) => n.heroSubtree === treeData.heroSubtrees.left.name,
-      ),
-    [treeData],
-  );
-  const rightNodes = useMemo(
-    () =>
-      treeData.nodes.filter(
-        (n) => n.heroSubtree === treeData.heroSubtrees.right.name,
-      ),
+  const { classNodes, specNodes, leftNodes, rightNodes } = useMemo(
+    () => splitSections(treeData),
     [treeData],
   );
 

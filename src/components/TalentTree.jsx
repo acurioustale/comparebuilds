@@ -1,10 +1,10 @@
-import { useMemo, useId, useRef, useState, useContext } from "react";
+import { useMemo, useId, useRef, useState } from "react";
 import Tippy from "@tippyjs/react";
 import "tippy.js/dist/tippy.css";
 import { iconUrl, onIconError } from "../lib/iconUrl";
 import { activeHeroSubtree } from "../lib/spendRules";
 import { prereqChain } from "../lib/prereqChain";
-import { SearchContext } from "./SearchContext";
+import { useSearchHighlight } from "./SearchContext";
 import {
   CELL,
   ICON,
@@ -15,6 +15,7 @@ import {
   byId,
   panelBounds,
   panelEdges,
+  splitSections,
   sectionRowClass,
   dividerClass,
 } from "./treeLayout";
@@ -261,18 +262,12 @@ function TalentNode({
 
   // Search highlight: when a query is active, matches keep their opacity and gain
   // a ring; everything else dims. Layers on top of the existing diff/invalid styling.
-  const { active: searchActive, matchIds } = useContext(SearchContext);
-  const searchHit = searchActive && matchIds ? matchIds.has(node.id) : false;
-  const searchDimmed = searchActive && matchIds ? !searchHit : false;
-  const effOpacity = (base) => (searchDimmed ? Math.min(base, 0.12) : base);
+  const { searchHit, effOpacity, searchRing } = useSearchHighlight(node.id);
   // Appends the search-match and prereq-chain rings (when active) onto a node's
   // existing shadow, so they layer over diff/invalid styling without replacing it.
   const withSearchShadow = (shadow) => {
     const rings = [];
-    if (searchHit)
-      rings.push(
-        "0 0 0 2px rgba(110,200,255,0.95), 0 0 12px rgba(110,200,255,0.55)",
-      );
+    if (searchRing) rings.push(searchRing);
     if (inChain && !searchHit) rings.push(CHAIN_RING);
     if (rings.length === 0) return shadow;
     return [shadow, ...rings].filter(Boolean).join(", ");
@@ -909,26 +904,8 @@ export default function TalentTree({
   const nodeById = useMemo(() => byId(treeData.nodes), [treeData]);
   const budget = treeData.pointBudget;
 
-  const classNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "class"),
-    [treeData],
-  );
-  const specNodes = useMemo(
-    () => treeData.nodes.filter((n) => n.treeType === "spec"),
-    [treeData],
-  );
-  const leftNodes = useMemo(
-    () =>
-      treeData.nodes.filter(
-        (n) => n.heroSubtree === treeData.heroSubtrees.left.name,
-      ),
-    [treeData],
-  );
-  const rightNodes = useMemo(
-    () =>
-      treeData.nodes.filter(
-        (n) => n.heroSubtree === treeData.heroSubtrees.right.name,
-      ),
+  const { classNodes, specNodes, leftNodes, rightNodes } = useMemo(
+    () => splitSections(treeData),
     [treeData],
   );
 
