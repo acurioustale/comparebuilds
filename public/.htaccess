@@ -15,10 +15,12 @@
 # ─── Security headers ──────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
   # Content-Security-Policy: the app loads only its own bundled JS/CSS/fonts and
-  # talent icons from wow.zamimg.com; share API calls are same-origin. Inline
+  # talent icons from wow.zamimg.com; share API calls (fetch) are same-origin.
+  # Icons load via <img> (img-src) and the service worker's own fetches aren't
+  # bound by the document's connect-src, so connect-src stays 'self' only. Inline
   # styles are allowed because React sets element style attributes; no inline
   # scripts are emitted by the build.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://wow.zamimg.com; font-src 'self'; connect-src 'self' https://wow.zamimg.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://wow.zamimg.com; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
