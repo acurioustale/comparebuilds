@@ -20,12 +20,17 @@
          will block it. -->
     <script>
       try {
-        var stored = localStorage.getItem('comparebuilds-theme');
-        var theme = (stored === 'light' || stored === 'dark')
-          ? stored
-          : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        var stored = localStorage.getItem("comparebuilds-theme");
+        var theme =
+          stored === "light" || stored === "dark"
+            ? stored
+            : matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "dark";
         document.documentElement.dataset.theme = theme;
-      } catch (e) { /* localStorage/matchMedia unavailable — CSS defaults to dark */ }
+      } catch (e) {
+        /* localStorage/matchMedia unavailable — CSS defaults to dark */
+      }
     </script>
 
     <!-- Icons -->
@@ -37,25 +42,40 @@
     <!-- Open Graph (link previews on Discord, Slack, Facebook, etc.) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Compare Builds" />
-    <meta property="og:title" content="Compare Builds — WoW talent build comparison" />
+    <meta
+      property="og:title"
+      content="Compare Builds — WoW talent build comparison"
+    />
     <meta
       property="og:description"
       content="Import, build, and compare World of Warcraft talent loadouts side by side, then share them with a short link."
     />
     <meta property="og:url" content="https://comparebuilds.app/" />
-    <meta property="og:image" content="https://comparebuilds.app/og-image.png" />
+    <meta
+      property="og:image"
+      content="https://comparebuilds.app/og-image.png"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Compare Builds — WoW talent build comparison tool" />
+    <meta
+      property="og:image:alt"
+      content="Compare Builds — WoW talent build comparison tool"
+    />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Compare Builds — WoW talent build comparison" />
+    <meta
+      name="twitter:title"
+      content="Compare Builds — WoW talent build comparison"
+    />
     <meta
       name="twitter:description"
       content="Import, build, and compare World of Warcraft talent loadouts side by side, then share them with a short link."
     />
-    <meta name="twitter:image" content="https://comparebuilds.app/og-image.png" />
+    <meta
+      name="twitter:image"
+      content="https://comparebuilds.app/og-image.png"
+    />
   </head>
   <body>
     <div id="root"></div>

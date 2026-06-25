@@ -1,25 +1,29 @@
-import { useState, useRef, useCallback } from 'react'
-import { useShallow } from 'zustand/react/shallow'
-import Tippy from '@tippyjs/react'
-import 'tippy.js/dist/tippy.css'
-import { useBuildsStore, MAX_BUILDS, MAX_BUILD_NAME_LEN } from '../store/buildsStore'
-import { encodeBuildsHash } from '../lib/shareLink'
-import classesIndex from '../data/classes.json'
-import { zamimg } from '../lib/zamimg'
-import { activeHeroSubtree } from '../lib/spendRules'
+import { useState, useRef, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
+import Tippy from "@tippyjs/react";
+import "tippy.js/dist/tippy.css";
+import {
+  useBuildsStore,
+  MAX_BUILDS,
+  MAX_BUILD_NAME_LEN,
+} from "../store/buildsStore";
+import { encodeBuildsHash } from "../lib/shareLink";
+import classesIndex from "../data/classes.json";
+import { zamimg } from "../lib/zamimg";
+import { activeHeroSubtree } from "../lib/spendRules";
 
 function ClassIcon({ name, size = 36 }) {
   // WoW class icons on zamimg use classicon_{name} with underscores removed.
   return (
     <img
-      src={zamimg('classicon_' + name.replaceAll('_', ''))}
+      src={zamimg("classicon_" + name.replaceAll("_", ""))}
       width={size}
       height={size}
       alt=""
       draggable={false}
-      style={{ display: 'block', borderRadius: 4, flexShrink: 0 }}
+      style={{ display: "block", borderRadius: 4, flexShrink: 0 }}
     />
-  )
+  );
 }
 
 function SpecIcon({ icon, size = 24 }) {
@@ -30,9 +34,9 @@ function SpecIcon({ icon, size = 24 }) {
       height={size}
       alt=""
       draggable={false}
-      style={{ display: 'block', borderRadius: 3, flexShrink: 0 }}
+      style={{ display: "block", borderRadius: 3, flexShrink: 0 }}
     />
-  )
+  );
 }
 
 // ─── Class grid ───────────────────────────────────────────────────────────────
@@ -43,11 +47,15 @@ function ClassGrid({ classes, activeClassId, locked, onSelect }) {
       {classes
         .filter((c) => c.implemented)
         .map((cls) => {
-          const isActive = cls.id === activeClassId
+          const isActive = cls.id === activeClassId;
           return (
             <Tippy
               key={cls.id}
-              content={locked && !isActive ? 'Clear builds to switch class' : cls.displayName}
+              content={
+                locked && !isActive
+                  ? "Clear builds to switch class"
+                  : cls.displayName
+              }
               placement="top"
               delay={[400, 0]}
             >
@@ -56,22 +64,24 @@ function ClassGrid({ classes, activeClassId, locked, onSelect }) {
                 disabled={locked && !isActive}
                 aria-pressed={isActive}
                 className={[
-                  'wow-class-btn rounded p-0.5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-wow-gold',
+                  "wow-class-btn rounded p-0.5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-wow-gold",
                   isActive
-                    ? 'wow-active opacity-100'
+                    ? "wow-active opacity-100"
                     : locked
-                    ? 'opacity-25 cursor-not-allowed'
-                    : 'opacity-50 hover:opacity-80',
-                ].join(' ')}
-                style={isActive ? { boxShadow: `0 0 0 2px ${cls.color}` } : undefined}
+                      ? "opacity-25 cursor-not-allowed"
+                      : "opacity-50 hover:opacity-80",
+                ].join(" ")}
+                style={
+                  isActive ? { boxShadow: `0 0 0 2px ${cls.color}` } : undefined
+                }
               >
                 <ClassIcon name={cls.name} size={36} />
               </button>
             </Tippy>
-          )
+          );
         })}
     </div>
-  )
+  );
 }
 
 // ─── Spec row ─────────────────────────────────────────────────────────────────
@@ -80,29 +90,33 @@ function SpecRow({ specs, activeSpecId, onSelect }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {specs.map((spec) => {
-        const isActive = spec.id === activeSpecId
+        const isActive = spec.id === activeSpecId;
         return (
           <button
             key={spec.id}
             onClick={() => onSelect?.(spec.id)}
             disabled={!onSelect || isActive}
             className={[
-              'flex items-center gap-1.5 px-2 py-1 rounded text-xs select-none transition-all outline-none',
+              "flex items-center gap-1.5 px-2 py-1 rounded text-xs select-none transition-all outline-none",
               isActive
-                ? 'text-wow-gold ring-1 ring-wow-gold-dark'
+                ? "text-wow-gold ring-1 ring-wow-gold-dark"
                 : onSelect
-                  ? 'text-wow-muted hover:text-wow-text cursor-pointer'
-                  : 'text-wow-muted cursor-default',
-            ].join(' ')}
-            style={isActive ? { background: 'rgba(200,168,75,0.08)' } : { background: 'rgba(255,255,255,0.03)' }}
+                  ? "text-wow-muted hover:text-wow-text cursor-pointer"
+                  : "text-wow-muted cursor-default",
+            ].join(" ")}
+            style={
+              isActive
+                ? { background: "rgba(200,168,75,0.08)" }
+                : { background: "rgba(255,255,255,0.03)" }
+            }
           >
             <SpecIcon icon={spec.icon} size={20} />
             <span>{spec.displayName}</span>
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 // ─── Build slot (filled) ──────────────────────────────────────────────────────
@@ -110,8 +124,10 @@ function SpecRow({ specs, activeSpecId, onSelect }) {
 function SlotStatus({ parsed, loading }) {
   if (loading) {
     return (
-      <span className="w-16 text-right text-wow-dim text-xs animate-pulse">loading…</span>
-    )
+      <span className="w-16 text-right text-wow-dim text-xs animate-pulse">
+        loading…
+      </span>
+    );
   }
   if (parsed === undefined || parsed === null) {
     return (
@@ -120,37 +136,49 @@ function SlotStatus({ parsed, loading }) {
           ✕
         </span>
       </Tippy>
-    )
+    );
   }
   return (
-    <span className="w-4 text-center text-green-500 text-sm select-none leading-none">✓</span>
-  )
+    <span className="w-4 text-center text-green-500 text-sm select-none leading-none">
+      ✓
+    </span>
+  );
 }
 
 function pointSummary(parsed, treeData) {
-  if (!parsed || !treeData) return null
-  const budget = treeData.pointBudget
-  const pts = { class: 0, spec: 0, hero: 0 }
+  if (!parsed || !treeData) return null;
+  const budget = treeData.pointBudget;
+  const pts = { class: 0, spec: 0, hero: 0 };
   for (const n of treeData.nodes) {
-    if (n.alreadyGranted) continue
-    const s = parsed.nodes[n.id]
-    if (s) pts[n.treeType] = (pts[n.treeType] ?? 0) + (s.pointsInvested ?? 0)
+    if (n.alreadyGranted) continue;
+    const s = parsed.nodes[n.id];
+    if (s) pts[n.treeType] = (pts[n.treeType] ?? 0) + (s.pointsInvested ?? 0);
   }
-  return `Class: ${pts.class}/${budget.class} · Spec: ${pts.spec}/${budget.spec} · Hero: ${pts.hero}/${budget.hero}`
+  return `Class: ${pts.class}/${budget.class} · Spec: ${pts.spec}/${budget.spec} · Hero: ${pts.hero}/${budget.hero}`;
 }
 
-function FilledSlot({ index, name, label, summary, value, parsed, loading, onRemove, onRename }) {
-  const [flash, setFlash] = useState(false)
+function FilledSlot({
+  index,
+  name,
+  label,
+  summary,
+  value,
+  parsed,
+  loading,
+  onRemove,
+  onRename,
+}) {
+  const [flash, setFlash] = useState(false);
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(value)
-      setFlash(true)
-      setTimeout(() => setFlash(false), 1500)
+      await navigator.clipboard.writeText(value);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 1500);
     } catch {
       // clipboard unavailable — silently ignore
     }
-  }, [value])
+  }, [value]);
 
   return (
     <div className="flex items-center gap-2 min-w-0">
@@ -165,19 +193,30 @@ function FilledSlot({ index, name, label, summary, value, parsed, loading, onRem
         aria-label={`Name for build ${index + 1}`}
         spellCheck={false}
         className="flex-1 min-w-0 text-xs rounded px-2 py-1.5 text-wow-gold placeholder-wow-dim outline-none transition-colors"
-        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #3a2e1a' }}
-        onFocus={(e) => { e.target.style.borderColor = '#8b6914' }}
-        onBlur={(e) => { e.target.style.borderColor = '#3a2e1a' }}
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid #3a2e1a",
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = "#8b6914";
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = "#3a2e1a";
+        }}
       />
 
-      <Tippy content={flash ? 'Copied!' : (summary ?? 'Copy build string')} placement="bottom" delay={[300, 0]}>
+      <Tippy
+        content={flash ? "Copied!" : (summary ?? "Copy build string")}
+        placement="bottom"
+        delay={[300, 0]}
+      >
         <button
           onClick={handleCopy}
           aria-label="Copy build string"
           className="shrink-0 w-6 h-6 flex items-center justify-center transition-colors text-sm leading-none rounded"
-          style={{ color: flash ? '#4ade80' : undefined }}
+          style={{ color: flash ? "#4ade80" : undefined }}
         >
-          {flash ? '✓' : '⧉'}
+          {flash ? "✓" : "⧉"}
         </button>
       </Tippy>
 
@@ -191,44 +230,44 @@ function FilledSlot({ index, name, label, summary, value, parsed, loading, onRem
 
       <SlotStatus parsed={parsed} loading={loading} />
     </div>
-  )
+  );
 }
 
 // ─── Empty slot (input) ───────────────────────────────────────────────────────
 
 function EmptySlot({ index, onAdd, errorMsg }) {
-  const [value, setValue] = useState('')
-  const inputRef = useRef(null)
+  const [value, setValue] = useState("");
+  const inputRef = useRef(null);
 
   const submit = useCallback(
     (text) => {
-      const trimmed = text ?? value.trim()
-      if (!trimmed) return
-      setValue('')
-      onAdd(trimmed)
+      const trimmed = text ?? value.trim();
+      if (!trimmed) return;
+      setValue("");
+      onAdd(trimmed);
     },
     [value, onAdd],
-  )
+  );
 
   // Auto-submit on paste so users don't need to press Enter
   const handlePaste = (e) => {
-    const pasted = e.clipboardData?.getData('text/plain') ?? ''
+    const pasted = e.clipboardData?.getData("text/plain") ?? "";
     if (pasted.trim()) {
-      e.preventDefault()
-      submit(pasted.trim())
+      e.preventDefault();
+      submit(pasted.trim());
     }
-  }
+  };
 
   // Clipboard button: read directly from OS clipboard
   const handleClipboard = async () => {
     try {
-      const text = await navigator.clipboard.readText()
-      if (text.trim()) submit(text.trim())
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) submit(text.trim());
     } catch {
       // Permissions denied or not supported; user can paste manually
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     }
-  }
+  };
 
   return (
     <div className="space-y-1">
@@ -239,13 +278,20 @@ function EmptySlot({ index, onAdd, errorMsg }) {
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
           onPaste={handlePaste}
           placeholder="Paste build string…"
           className="flex-1 font-mono text-xs rounded px-2 py-1.5 text-wow-text placeholder-wow-dim outline-none transition-colors"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #3a2e1a' }}
-          onFocus={(e) => { e.target.style.borderColor = '#8b6914' }}
-          onBlur={(e) => { e.target.style.borderColor = '#3a2e1a' }}
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid #3a2e1a",
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#8b6914";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#3a2e1a";
+          }}
           spellCheck={false}
           autoComplete="off"
           autoCorrect="off"
@@ -264,10 +310,12 @@ function EmptySlot({ index, onAdd, errorMsg }) {
       </div>
 
       {errorMsg && (
-        <p className="ml-[1.375rem] text-red-400 text-xs leading-snug pl-2">{errorMsg}</p>
+        <p className="ml-[1.375rem] text-red-400 text-xs leading-snug pl-2">
+          {errorMsg}
+        </p>
       )}
     </div>
-  )
+  );
 }
 
 // Shared slot number label
@@ -275,13 +323,13 @@ function SlotNumber({ n, muted = false }) {
   return (
     <span
       className={[
-        'shrink-0 w-4 text-right text-xs tabular-nums select-none',
-        muted ? 'text-wow-dim' : 'text-wow-muted',
-      ].join(' ')}
+        "shrink-0 w-4 text-right text-xs tabular-nums select-none",
+        muted ? "text-wow-dim" : "text-wow-muted",
+      ].join(" ")}
     >
       {n}
     </span>
-  )
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -317,115 +365,142 @@ export default function BuildManager() {
       preloadSpec: s.preloadSpec,
       setBuildName: s.setBuildName,
     })),
-  )
+  );
 
-  const [copyState, setCopyState] = useState('idle') // 'idle' | 'copying' | 'copied' | 'error'
-  const [permalinkState, setPermalinkState] = useState('idle') // 'idle' | 'copied' | 'error'
+  const [copyState, setCopyState] = useState("idle"); // 'idle' | 'copying' | 'copied' | 'error'
+  const [permalinkState, setPermalinkState] = useState("idle"); // 'idle' | 'copied' | 'error'
 
   // Local class selection used before any builds are loaded
-  const [localClassId, setLocalClassId] = useState(null)
+  const [localClassId, setLocalClassId] = useState(null);
 
   // Class that owns the loaded spec — lets a spec-page landing (which sets specId
   // but not classId) highlight the right class without locking the grid.
-  const specClassId = specId != null
-    ? classesIndex.find((c) => c.specs.some((s) => s.id === specId))?.id ?? null
-    : null
+  const specClassId =
+    specId != null
+      ? (classesIndex.find((c) => c.specs.some((s) => s.id === specId))?.id ??
+        null)
+      : null;
 
   // Store classId takes precedence once builds exist; then an explicit local pick;
   // then the loaded spec's class.
-  const activeClassId = classId ?? localClassId ?? specClassId
-  const activeClass   = classesIndex.find((c) => c.id === activeClassId)
-  const classLocked   = classId !== null
+  const activeClassId = classId ?? localClassId ?? specClassId;
+  const activeClass = classesIndex.find((c) => c.id === activeClassId);
+  const classLocked = classId !== null;
 
   // Human-readable spec/class names, used for labels and the share payload.
-  const specDisplayName  = activeClass?.specs.find((s) => s.id === specId)?.displayName ?? ''
-  const classDisplayName = activeClass?.displayName ?? ''
+  const specDisplayName =
+    activeClass?.specs.find((s) => s.id === specId)?.displayName ?? "";
+  const classDisplayName = activeClass?.displayName ?? "";
 
   // Permalink: encodes the builds straight into the URL hash — self-contained, so
   // it never expires and needs no server (unlike the short link), at the cost of a
   // long URL with no preview.
   const handleCopyPermalink = useCallback(async () => {
-    if (permalinkState !== 'idle') return
+    if (permalinkState !== "idle") return;
     try {
-      const token = encodeBuildsHash({ builds: buildStrings, names: buildNames })
-      const url = `${window.location.origin}${window.location.pathname}#b=${token}`
-      await navigator.clipboard.writeText(url)
-      setPermalinkState('copied')
+      const token = encodeBuildsHash({
+        builds: buildStrings,
+        names: buildNames,
+      });
+      const url = `${window.location.origin}${window.location.pathname}#b=${token}`;
+      await navigator.clipboard.writeText(url);
+      setPermalinkState("copied");
     } catch {
-      setPermalinkState('error')
+      setPermalinkState("error");
     } finally {
-      setTimeout(() => setPermalinkState('idle'), 2000)
+      setTimeout(() => setPermalinkState("idle"), 2000);
     }
-  }, [permalinkState, buildStrings, buildNames])
+  }, [permalinkState, buildStrings, buildNames]);
 
   const handleCopyLink = useCallback(async () => {
-    if (copyState !== 'idle') return
-    setCopyState('copying')
+    if (copyState !== "idle") return;
+    setCopyState("copying");
     try {
-      const apiBase = import.meta.env.BASE_URL + 'api/share.php'
+      const apiBase = import.meta.env.BASE_URL + "api/share.php";
       // Include labels only when at least one slot is named, plus the display
       // names the OG-image endpoint needs (it has no class index to look them up).
-      const labels = buildNames.some(Boolean) ? buildNames : undefined
+      const labels = buildNames.some(Boolean) ? buildNames : undefined;
       const res = await fetch(apiBase, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classId, specId, builds: buildStrings, labels, className: classDisplayName, specName: specDisplayName }),
-      })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId,
+          specId,
+          builds: buildStrings,
+          labels,
+          className: classDisplayName,
+          specName: specDisplayName,
+        }),
+      });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `HTTP ${res.status}`)
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
       }
-      const { id } = await res.json()
+      const { id } = await res.json();
       // /s/<id> is the server-rendered share page (link previews); it redirects
       // humans to the SPA. Old #<id> links keep working via the route resolver.
-      const url = `${window.location.origin}/s/${id}`
-      await navigator.clipboard.writeText(url)
-      setCopyState('copied')
+      const url = `${window.location.origin}/s/${id}`;
+      await navigator.clipboard.writeText(url);
+      setCopyState("copied");
     } catch {
-      setCopyState('error')
+      setCopyState("error");
     } finally {
-      setTimeout(() => setCopyState('idle'), 2000)
+      setTimeout(() => setCopyState("idle"), 2000);
     }
-  }, [copyState, classId, specId, buildStrings, buildNames, classDisplayName, specDisplayName])
+  }, [
+    copyState,
+    classId,
+    specId,
+    buildStrings,
+    buildNames,
+    classDisplayName,
+    specDisplayName,
+  ]);
 
   // Human-readable build label: "Build N — [Hero Spec] Spec Class"
   const buildLabel = (n, parsedBuild) => {
-    if (!specDisplayName || !classDisplayName) return `Build ${n}`
-    const heroSpec = parsedBuild && treeData ? activeHeroSubtree(treeData.nodes, parsedBuild.nodes) : null
-    const prefix = heroSpec ? `${heroSpec} ` : ''
-    return `Build ${n} — ${prefix}${specDisplayName} ${classDisplayName}`
-  }
+    if (!specDisplayName || !classDisplayName) return `Build ${n}`;
+    const heroSpec =
+      parsedBuild && treeData
+        ? activeHeroSubtree(treeData.nodes, parsedBuild.nodes)
+        : null;
+    const prefix = heroSpec ? `${heroSpec} ` : "";
+    return `Build ${n} — ${prefix}${specDisplayName} ${classDisplayName}`;
+  };
 
   const handleClassSelect = (id) => {
-    if (classLocked) return
-    setLocalClassId(id)
+    if (classLocked) return;
+    setLocalClassId(id);
     // Reset spec + interactive tree when class changes in interactive mode
-    if (buildStrings.length === 0) clearAllBuilds()
-  }
+    if (buildStrings.length === 0) clearAllBuilds();
+  };
 
-  const handleSpecSelect = useCallback((id) => {
-    if (classLocked) return
-    preloadSpec(id)
-  }, [classLocked, preloadSpec])
+  const handleSpecSelect = useCallback(
+    (id) => {
+      if (classLocked) return;
+      preloadSpec(id);
+    },
+    [classLocked, preloadSpec],
+  );
 
   // ── Slot layout ────────────────────────────────────────────────────────────
-  const filledCount = buildStrings.length
-  const canAdd      = filledCount < MAX_BUILDS
+  const filledCount = buildStrings.length;
+  const canAdd = filledCount < MAX_BUILDS;
   // Always show at least 2 slots so the intent (compare 2 builds) is obvious
-  const totalSlots  = Math.max(2, filledCount + (canAdd ? 1 : 0))
+  const totalSlots = Math.max(2, filledCount + (canAdd ? 1 : 0));
 
   // ── Action button visibility ───────────────────────────────────────────────
   // The share API requires 2–5 builds, so Copy link only appears once at least
   // two builds are loaded and ALL of them are fully parsed (no nulls, no
   // loading in progress).
-  const allParsed = filledCount >= 2
-    && !isLoading
-    && parsedBuilds.length === filledCount
-    && parsedBuilds.every(Boolean)
+  const allParsed =
+    filledCount >= 2 &&
+    !isLoading &&
+    parsedBuilds.length === filledCount &&
+    parsedBuilds.every(Boolean);
 
   return (
     <div className="wow-panel text-wow-text p-4 rounded space-y-4 max-w-2xl mx-auto">
-
       {/* ── Class grid ─────────────────────────────── */}
       <section>
         <SectionLabel>Class</SectionLabel>
@@ -476,22 +551,26 @@ export default function BuildManager() {
                 <FilledSlot
                   key={buildStrings[i]}
                   index={i}
-                  name={buildNames[i] ?? ''}
+                  name={buildNames[i] ?? ""}
                   label={buildLabel(i + 1, parsedBuilds[i])}
                   summary={pointSummary(parsedBuilds[i], treeData)}
                   value={buildStrings[i]}
                   parsed={parsedBuilds[i]}
                   // Show "loading" on the last filled slot while tree data is fetched
-                  loading={isLoading && i === filledCount - 1 && parsedBuilds[i] === null}
+                  loading={
+                    isLoading &&
+                    i === filledCount - 1 &&
+                    parsedBuilds[i] === null
+                  }
                   onRemove={() => removeBuild(i)}
                   onRename={(v) => setBuildName(i, v)}
                 />
-              )
+              );
             }
 
             // Empty input slot — error is only shown on the primary empty slot
             // (the one at filledCount, i.e. the first empty one)
-            const isPrimary = i === filledCount
+            const isPrimary = i === filledCount;
             return (
               <EmptySlot
                 key={`empty-${i}`}
@@ -499,7 +578,7 @@ export default function BuildManager() {
                 onAdd={addBuild}
                 errorMsg={isPrimary ? error : null}
               />
-            )
+            );
           })}
         </div>
       </section>
@@ -508,67 +587,91 @@ export default function BuildManager() {
       {allParsed && (
         <section className="flex justify-end items-center gap-2 pt-3 border-t border-wow-dim">
           <CopyLinkButton state={copyState} onClick={handleCopyLink} />
-          <PermalinkButton state={permalinkState} onClick={handleCopyPermalink} />
+          <PermalinkButton
+            state={permalinkState}
+            onClick={handleCopyPermalink}
+          />
         </section>
       )}
     </div>
-  )
+  );
 }
 
 // ─── Tiny shared presentational bits ─────────────────────────────────────────
 
 function SectionLabel({ children }) {
   return (
-    <p className="text-wow-gold-dark text-xs uppercase tracking-widest mb-1.5">{children}</p>
-  )
+    <p className="text-wow-gold-dark text-xs uppercase tracking-widest mb-1.5">
+      {children}
+    </p>
+  );
 }
 
 // Short server link: stored for a clean URL that unfurls with a preview card.
 function CopyLinkButton({ state, onClick }) {
   const label =
-    state === 'copying' ? 'Saving…' :
-    state === 'copied'  ? 'Copied!' :
-    state === 'error'   ? 'Failed'  : 'Copy link'
+    state === "copying"
+      ? "Saving…"
+      : state === "copied"
+        ? "Copied!"
+        : state === "error"
+          ? "Failed"
+          : "Copy link";
 
   return (
-    <Tippy content="A short link that shows a preview when posted. Expires after 90 days." placement="top" delay={[300, 0]}>
+    <Tippy
+      content="A short link that shows a preview when posted. Expires after 90 days."
+      placement="top"
+      delay={[300, 0]}
+    >
       <button
         onClick={onClick}
-        disabled={state !== 'idle'}
+        disabled={state !== "idle"}
         className="wow-btn px-3 py-1.5 text-xs rounded select-none"
         style={
-          state === 'copied' ? { color: '#4ade80', borderColor: '#166534' } :
-          state === 'error'  ? { color: '#f87171', borderColor: '#7f1d1d' } :
-          undefined
+          state === "copied"
+            ? { color: "#4ade80", borderColor: "#166534" }
+            : state === "error"
+              ? { color: "#f87171", borderColor: "#7f1d1d" }
+              : undefined
         }
       >
         {label}
       </button>
     </Tippy>
-  )
+  );
 }
 
 // Permalink: the build encoded in the URL itself — never expires and needs no
 // server, but it's a long URL with no preview.
 function PermalinkButton({ state, onClick }) {
   const label =
-    state === 'copied' ? 'Copied!' :
-    state === 'error'  ? 'Failed'  : 'Copy permalink'
+    state === "copied"
+      ? "Copied!"
+      : state === "error"
+        ? "Failed"
+        : "Copy permalink";
 
   return (
-    <Tippy content="A permanent link with the build encoded in it — never expires and works offline, but it's long and shows no preview." placement="top" delay={[300, 0]}>
+    <Tippy
+      content="A permanent link with the build encoded in it — never expires and works offline, but it's long and shows no preview."
+      placement="top"
+      delay={[300, 0]}
+    >
       <button
         onClick={onClick}
-        disabled={state !== 'idle'}
+        disabled={state !== "idle"}
         className="wow-btn px-3 py-1.5 text-xs rounded select-none"
         style={
-          state === 'copied' ? { color: '#4ade80', borderColor: '#166534' } :
-          state === 'error'  ? { color: '#f87171', borderColor: '#7f1d1d' } :
-          undefined
+          state === "copied"
+            ? { color: "#4ade80", borderColor: "#166534" }
+            : state === "error"
+              ? { color: "#f87171", borderColor: "#7f1d1d" }
+              : undefined
         }
       >
         {label}
       </button>
     </Tippy>
-  )
+  );
 }

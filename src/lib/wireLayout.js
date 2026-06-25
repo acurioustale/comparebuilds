@@ -19,22 +19,22 @@
  * Node-only (uses node:crypto); never imported by the browser app.
  */
 
-import { createHash } from 'node:crypto'
-import { collectClassNodes } from './buildString.js'
+import { createHash } from "node:crypto";
+import { collectClassNodes } from "./buildString.js";
 
 /**
  * @param {object} classData  Parsed src/data/{slug}.json
  * @returns {{ count: number, hash: string }}  Stable fingerprint of the wire layout
  */
 export function wireLayout(classData) {
-  const nodes = collectClassNodes(classData)
+  const nodes = collectClassNodes(classData);
   // id + maxRanks + choice arity fully determine each node's bit footprint and
   // position. Joined in collectClassNodes' ascending-id order.
   const signature = nodes
     .map((n) => `${n.id}:${n.maxRanks}:${n.choices?.length ?? 0}`)
-    .join('|')
+    .join("|");
   return {
     count: nodes.length,
-    hash: createHash('sha256').update(signature).digest('hex').slice(0, 16),
-  }
+    hash: createHash("sha256").update(signature).digest("hex").slice(0, 16),
+  };
 }

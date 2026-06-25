@@ -27,7 +27,7 @@ CI authenticates with a dedicated SSH deploy key, stored as the repository
 secrets `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS`. The key is harmless if leaked:
 on the host it's pinned to a forced command
 (`~web4186/bin/rsync-jail-comparebuilds.sh`, wired up in that account's
-`authorized_keys`) that allows only an rsync *push* into `html/comparebuilds.app/`
+`authorized_keys`) that allows only an rsync _push_ into `html/comparebuilds.app/`
 — no shell, no pull, and no path traversal outside that directory. This is why
 the deploy target in `deploy.sh` must keep its trailing slash; the jail matches
 on that exact prefix.
@@ -125,10 +125,10 @@ In your hosting control panel, point the `comparebuilds.app` domain to the web r
 
 `api/share.php` handles short links for sharing builds:
 
-| Method | Parameters | Response |
-|--------|-----------|----------|
-| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names) and `className`/`specName` (≤ 64 chars, used by the OG image). | `{ id }` — 6-char alphanumeric |
-| `GET`  | `?id=xxxxxx` | Stored JSON payload (includes `labels`/`className`/`specName` when they were sent) |
+| Method | Parameters                                                                                                                                                                                                                                      | Response                                                                           |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names) and `className`/`specName` (≤ 64 chars, used by the OG image). | `{ id }` — 6-char alphanumeric                                                     |
+| `GET`  | `?id=xxxxxx`                                                                                                                                                                                                                                    | Stored JSON payload (includes `labels`/`className`/`specName` when they were sent) |
 
 Rows older than 90 days are deleted on each `POST` request.
 
@@ -191,7 +191,7 @@ implementation detail behind it.
 
 `src/lib/buildString.js` parses/encodes the game's native talent loadout string
 (the same one the in-game UI and any calculator export). The wire format is fixed
-by the game; only the *node list* depends on the data. Importing and sharing
+by the game; only the _node list_ depends on the data. Importing and sharing
 builds is not tied to any particular data provider.
 
 ### Tests

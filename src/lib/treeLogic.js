@@ -8,7 +8,7 @@
 export function upperParents(node, nodeById) {
   return node.connections
     .map((id) => nodeById[id])
-    .filter((c) => c && c.posY < node.posY)
+    .filter((c) => c && c.posY < node.posY);
 }
 
 /**
@@ -17,13 +17,13 @@ export function upperParents(node, nodeById) {
  * Nodes with no upper connections (root nodes) always pass.
  */
 export function hasUpperPrereq(node, selected, nodeById) {
-  const upper = upperParents(node, nodeById)
-  if (upper.length === 0) return true
+  const upper = upperParents(node, nodeById);
+  if (upper.length === 0) return true;
   return upper.some((c) => {
-    if (c.alreadyGranted) return true
-    const s = selected[c.id]
-    return s && s.pointsInvested >= c.maxRanks
-  })
+    if (c.alreadyGranted) return true;
+    const s = selected[c.id];
+    return s && s.pointsInvested >= c.maxRanks;
+  });
 }
 
 /**
@@ -32,13 +32,14 @@ export function hasUpperPrereq(node, selected, nodeById) {
  * Used for spentRequired gate checks.
  */
 export function gatedPoints(node, allNodes, selected) {
-  let total = 0
+  let total = 0;
   for (const n of allNodes) {
-    if (n.alreadyGranted || n.treeType !== node.treeType) continue
-    if (node.treeType === 'hero' && n.heroSubtree !== node.heroSubtree) continue
-    total += selected[n.id]?.pointsInvested ?? 0
+    if (n.alreadyGranted || n.treeType !== node.treeType) continue;
+    if (node.treeType === "hero" && n.heroSubtree !== node.heroSubtree)
+      continue;
+    total += selected[n.id]?.pointsInvested ?? 0;
   }
-  return total
+  return total;
 }
 
 // ─── Exports used by both interactive and import contexts ─────────────────────
@@ -51,11 +52,12 @@ export function gatedPoints(node, allNodes, selected) {
  * @returns {Record<number, {pointsInvested: number, entryChosen: null}>}
  */
 export function buildGrantedSeed(treeData) {
-  const seed = {}
+  const seed = {};
   for (const n of treeData.nodes) {
-    if (n.alreadyGranted) seed[n.id] = { pointsInvested: n.maxRanks, entryChosen: null }
+    if (n.alreadyGranted)
+      seed[n.id] = { pointsInvested: n.maxRanks, entryChosen: null };
   }
-  return seed
+  return seed;
 }
 
 /**
@@ -78,38 +80,38 @@ export function buildGrantedSeed(treeData) {
  * @returns {Set<number>}
  */
 export function computeInvalidNodeIds(allNodes, selected, nodeById) {
-  const invalid = new Set()
+  const invalid = new Set();
 
   // Topological order: posY ascending guarantees parents processed before children.
   const sorted = allNodes
     .filter((n) => selected[n.id] && !n.alreadyGranted)
-    .sort((a, b) => a.posY !== b.posY ? a.posY - b.posY : a.posX - b.posX)
+    .sort((a, b) => (a.posY !== b.posY ? a.posY - b.posY : a.posX - b.posX));
 
   for (const node of sorted) {
-    let shouldFlag = false
+    let shouldFlag = false;
 
     // Gate: raw selected point total — does not exclude already-invalid nodes
     if (gatedPoints(node, allNodes, selected) < node.spentRequired) {
-      shouldFlag = true
+      shouldFlag = true;
     }
 
     // Prereq cascade: an invalid parent does NOT satisfy the requirement
     if (!shouldFlag) {
-      const upper = upperParents(node, nodeById)
+      const upper = upperParents(node, nodeById);
 
       if (upper.length > 0) {
         const anyValidParent = upper.some((c) => {
-          if (c.alreadyGranted) return true       // always satisfied
-          if (invalid.has(c.id)) return false     // invalid parent doesn't count
-          const s = selected[c.id]
-          return s && s.pointsInvested >= c.maxRanks
-        })
-        if (!anyValidParent) shouldFlag = true
+          if (c.alreadyGranted) return true; // always satisfied
+          if (invalid.has(c.id)) return false; // invalid parent doesn't count
+          const s = selected[c.id];
+          return s && s.pointsInvested >= c.maxRanks;
+        });
+        if (!anyValidParent) shouldFlag = true;
       }
     }
 
-    if (shouldFlag) invalid.add(node.id)
+    if (shouldFlag) invalid.add(node.id);
   }
 
-  return invalid
+  return invalid;
 }

@@ -57,53 +57,56 @@
 // would imply a different layout, so the parsers reject it loudly rather than
 // silently misreading every node position. Bump (and update the layout) only when
 // the game's format actually changes.
-export const SERIALIZATION_VERSION = 2
+export const SERIALIZATION_VERSION = 2;
 
 // ─── Character table ─────────────────────────────────────────────────────────
 
-const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+const CHARSET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /** @type {Map<string, number>} char → 0-63 */
-const CHAR_TO_VAL = new Map(CHARSET.split('').map((c, i) => [c, i]))
+const CHAR_TO_VAL = new Map(CHARSET.split("").map((c, i) => [c, i]));
 
 // ─── Bit reader ───────────────────────────────────────────────────────────────
 
 class BitReader {
-  /** @type {string} */  #str
-  /** @type {number} */  #pos = 0
+  /** @type {string} */ #str;
+  /** @type {number} */ #pos = 0;
 
   /** @param {string} buildString  Base64 string, padding stripped internally. */
   constructor(buildString) {
-    this.#str = buildString.replace(/=+$/, '')
+    this.#str = buildString.replace(/=+$/, "");
   }
 
   readBit() {
-    const charIdx = (this.#pos / 6) | 0
+    const charIdx = (this.#pos / 6) | 0;
     if (charIdx >= this.#str.length) {
-      throw new RangeError(`Build string exhausted at bit ${this.#pos}`)
+      throw new RangeError(`Build string exhausted at bit ${this.#pos}`);
     }
-    const val = CHAR_TO_VAL.get(this.#str[charIdx])
+    const val = CHAR_TO_VAL.get(this.#str[charIdx]);
     if (val === undefined) {
-      throw new TypeError(`Invalid character '${this.#str[charIdx]}' at index ${charIdx}`)
+      throw new TypeError(
+        `Invalid character '${this.#str[charIdx]}' at index ${charIdx}`,
+      );
     }
     // LSB-first within each 6-bit character: bit j = (val >> j) & 1
-    const bit = (val >> (this.#pos % 6)) & 1
-    this.#pos++
-    return bit
+    const bit = (val >> (this.#pos % 6)) & 1;
+    this.#pos++;
+    return bit;
   }
 
   /** Read `count` bits, assembled LSB-first into an unsigned integer. */
   readBits(count) {
-    let result = 0
+    let result = 0;
     for (let i = 0; i < count; i++) {
-      result |= this.readBit() << i
+      result |= this.readBit() << i;
     }
-    return result
+    return result;
   }
 
   /** Advance position by `count` bits (validates bounds lazily on next readBit). */
   skipBits(count) {
-    this.#pos += count
+    this.#pos += count;
   }
 }
 
@@ -127,23 +130,23 @@ class BitReader {
  */
 export function collectClassNodes(classData) {
   /** @type {Map<number, {id:number, maxRanks:number, choices:any}>} */
-  const byId = new Map()
+  const byId = new Map();
 
   // unusedNodeIds are placeholder IDs in the serialisation space with no talent
   // data. They are always isSelected=0 in real builds, but must be present in the
   // traversal set or all subsequent node bit-positions will be off by their count.
-  for (const id of (classData.unusedNodeIds ?? [])) {
-    byId.set(id, { id, maxRanks: 1, choices: null })
+  for (const id of classData.unusedNodeIds ?? []) {
+    byId.set(id, { id, maxRanks: 1, choices: null });
   }
 
   for (const spec of Object.values(classData.specs)) {
     for (const node of spec.nodes) {
       if (!byId.has(node.id)) {
         byId.set(node.id, {
-          id:       node.id,
+          id: node.id,
           maxRanks: node.maxRanks ?? 1,
-          choices:  node.choices ?? null,
-        })
+          choices: node.choices ?? null,
+        });
       }
     }
     // heroGateNodeId is not in the nodes array but IS in the serialisation space.
@@ -152,12 +155,14 @@ export function collectClassNodes(classData) {
     // choice node for correct encoding.
     if (spec.heroGateNodeId != null && !byId.has(spec.heroGateNodeId)) {
       byId.set(spec.heroGateNodeId, {
-        id: spec.heroGateNodeId, maxRanks: 1, choices: [{ maxRanks: 1 }, { maxRanks: 1 }],
-      })
+        id: spec.heroGateNodeId,
+        maxRanks: 1,
+        choices: [{ maxRanks: 1 }, { maxRanks: 1 }],
+      });
     }
   }
 
-  return [...byId.values()].sort((a, b) => a.id - b.id)
+  return [...byId.values()].sort((a, b) => a.id - b.id);
 }
 
 /**
@@ -182,98 +187,104 @@ export function collectClassNodes(classData) {
  * }}
  */
 export function parseBuildString(buildString, nodes) {
-  if (!buildString || typeof buildString !== 'string') {
-    throw new TypeError('buildString must be a non-empty string')
+  if (!buildString || typeof buildString !== "string") {
+    throw new TypeError("buildString must be a non-empty string");
   }
   if (!Array.isArray(nodes) || nodes.length === 0) {
-    throw new TypeError('nodes must be a non-empty array')
+    throw new TypeError("nodes must be a non-empty array");
   }
 
-  const reader = new BitReader(buildString)
+  const reader = new BitReader(buildString);
 
-  const version = reader.readBits(8)
+  const version = reader.readBits(8);
   if (version !== SERIALIZATION_VERSION) {
-    throw new RangeError(`Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`)
+    throw new RangeError(
+      `Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`,
+    );
   }
-  const specId  = reader.readBits(16)
-  reader.skipBits(128)  // Blizzard internal hash — opaque, carries a real (non-zero) value in game exports but is not needed to decode the selection
+  const specId = reader.readBits(16);
+  reader.skipBits(128); // Blizzard internal hash — opaque, carries a real (non-zero) value in game exports but is not needed to decode the selection
 
   // Sort ascending — must match the order used during serialisation
-  const sorted = [...nodes].sort((a, b) => a.id - b.id)
+  const sorted = [...nodes].sort((a, b) => a.id - b.id);
 
   // Indexed for maxRanks / choices lookups
-  const nodeById = new Map(nodes.map((n) => [n.id, n]))
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
   /** @type {Record<number, {pointsInvested:number, entryChosen:number|null}>} */
-  const result = {}
+  const result = {};
 
   for (const { id } of sorted) {
-    const isSelected = reader.readBit()
-    if (!isSelected) continue
+    const isSelected = reader.readBit();
+    if (!isSelected) continue;
 
-    const isPurchased = reader.readBit()
-    if (!isPurchased) continue
+    const isPurchased = reader.readBit();
+    if (!isPurchased) continue;
 
-    const isPartiallyRanked = reader.readBit()
+    const isPartiallyRanked = reader.readBit();
 
     // Defer resolving "fully purchased" rank until we know entryChosen —
     // choice/apex nodes can have per-option maxRanks that differ from node.maxRanks.
-    let partialPoints = null
+    let partialPoints = null;
     if (isPartiallyRanked) {
-      partialPoints = reader.readBits(6)
+      partialPoints = reader.readBits(6);
     }
 
-    const isChoiceNode = reader.readBit()
-    let entryChosen = null
+    const isChoiceNode = reader.readBit();
+    let entryChosen = null;
     if (isChoiceNode) {
-      entryChosen = reader.readBits(2)
+      entryChosen = reader.readBits(2);
     }
 
     // Resolve the node's effective max rank (choice/apex options can differ from
     // node.maxRanks — e.g. an apex with maxRanks=2 or per-option choice ranks).
-    const node = nodeById.get(id)
+    const node = nodeById.get(id);
     const effectiveMax =
       isChoiceNode && node?.choices && entryChosen !== null
         ? (node.choices[entryChosen]?.maxRanks ?? 1)
-        : (node?.maxRanks ?? 1)
+        : (node?.maxRanks ?? 1);
 
     // Resolve pointsInvested. A partially-ranked stream value is clamped to the
     // node's max so a corrupt or hand-crafted string can't yield ranks like 7/5
     // that would inflate section totals or render nonsensically. Fully-purchased
     // nodes omit the explicit rank and take the max directly.
     const pointsInvested =
-      partialPoints !== null ? Math.min(partialPoints, effectiveMax) : effectiveMax
+      partialPoints !== null
+        ? Math.min(partialPoints, effectiveMax)
+        : effectiveMax;
 
-    result[id] = { pointsInvested, entryChosen }
+    result[id] = { pointsInvested, entryChosen };
   }
 
-  return { version, specId, nodes: result }
+  return { version, specId, nodes: result };
 }
 
 // ─── Bit writer ───────────────────────────────────────────────────────────────
 
 class BitWriter {
-  #bits = []
+  #bits = [];
 
-  writeBit(bit) { this.#bits.push(bit & 1) }
+  writeBit(bit) {
+    this.#bits.push(bit & 1);
+  }
 
   // NOTE: only safe for count <= 31 with non-zero values — JS masks shift amounts
   // to 5 bits, so (value >> i) is wrong for i >= 32. All real fields here are <= 16
   // bits; the only wide write is the 128-bit hash, which is always 0.
   writeBits(value, count) {
-    for (let i = 0; i < count; i++) this.#bits.push((value >> i) & 1)
+    for (let i = 0; i < count; i++) this.#bits.push((value >> i) & 1);
   }
 
   toString() {
-    const bits = [...this.#bits]
-    while (bits.length % 6 !== 0) bits.push(0)
-    let out = ''
+    const bits = [...this.#bits];
+    while (bits.length % 6 !== 0) bits.push(0);
+    let out = "";
     for (let i = 0; i < bits.length; i += 6) {
-      let v = 0
-      for (let j = 0; j < 6; j++) v |= bits[i + j] << j
-      out += CHARSET[v]
+      let v = 0;
+      for (let j = 0; j < 6; j++) v |= bits[i + j] << j;
+      out += CHARSET[v];
     }
-    return out
+    return out;
   }
 }
 
@@ -301,46 +312,54 @@ class BitWriter {
  *   which is fine for round-trip tests that never include granted nodes).
  * @returns {string}  Base64 build string (no padding).
  */
-export function generateBuildString(selectedNodes, specId, classNodes, grantedIds = new Set()) {
-  const writer = new BitWriter()
+export function generateBuildString(
+  selectedNodes,
+  specId,
+  classNodes,
+  grantedIds = new Set(),
+) {
+  const writer = new BitWriter();
 
-  writer.writeBits(SERIALIZATION_VERSION, 8) // version
-  writer.writeBits(specId, 16)               // specId
-  writer.writeBits(0, 128)     // Blizzard hash (zeros)
+  writer.writeBits(SERIALIZATION_VERSION, 8); // version
+  writer.writeBits(specId, 16); // specId
+  writer.writeBits(0, 128); // Blizzard hash (zeros)
 
-  const byId = new Map(classNodes.map((n) => [n.id, n]))
-  const sorted = [...classNodes].sort((a, b) => a.id - b.id)
+  const byId = new Map(classNodes.map((n) => [n.id, n]));
+  const sorted = [...classNodes].sort((a, b) => a.id - b.id);
 
   for (const { id } of sorted) {
     // Auto-granted nodes are always present but never point-purchased.
     if (grantedIds.has(id)) {
-      writer.writeBit(1) // isSelected
-      writer.writeBit(0) // isPurchased
-      continue
+      writer.writeBit(1); // isSelected
+      writer.writeBit(0); // isPurchased
+      continue;
     }
 
-    const sel = selectedNodes[id]
-    if (!sel) { writer.writeBit(0); continue }
+    const sel = selectedNodes[id];
+    if (!sel) {
+      writer.writeBit(0);
+      continue;
+    }
 
-    writer.writeBit(1) // isSelected
-    writer.writeBit(1) // isPurchased
+    writer.writeBit(1); // isSelected
+    writer.writeBit(1); // isPurchased
 
-    const node = byId.get(id)
+    const node = byId.get(id);
     const maxRanks =
       node?.choices && sel.entryChosen !== null
         ? (node.choices[sel.entryChosen]?.maxRanks ?? node?.maxRanks ?? 1)
-        : (node?.maxRanks ?? 1)
+        : (node?.maxRanks ?? 1);
 
-    const partial = sel.pointsInvested < maxRanks
-    writer.writeBit(partial ? 1 : 0)
-    if (partial) writer.writeBits(sel.pointsInvested, 6)
+    const partial = sel.pointsInvested < maxRanks;
+    writer.writeBit(partial ? 1 : 0);
+    if (partial) writer.writeBits(sel.pointsInvested, 6);
 
-    const isChoice = node?.choices != null ? 1 : 0
-    writer.writeBit(isChoice)
-    if (isChoice) writer.writeBits(sel.entryChosen ?? 0, 2)
+    const isChoice = node?.choices != null ? 1 : 0;
+    writer.writeBit(isChoice);
+    if (isChoice) writer.writeBits(sel.entryChosen ?? 0, 2);
   }
 
-  return writer.toString()
+  return writer.toString();
 }
 
 /**
@@ -351,14 +370,16 @@ export function generateBuildString(selectedNodes, specId, classNodes, grantedId
  * @returns {{ version: number, specId: number }}
  */
 export function parseSpecId(buildString) {
-  if (!buildString || typeof buildString !== 'string') {
-    throw new TypeError('buildString must be a non-empty string')
+  if (!buildString || typeof buildString !== "string") {
+    throw new TypeError("buildString must be a non-empty string");
   }
-  const reader = new BitReader(buildString)
-  const version = reader.readBits(8)
+  const reader = new BitReader(buildString);
+  const version = reader.readBits(8);
   if (version !== SERIALIZATION_VERSION) {
-    throw new RangeError(`Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`)
+    throw new RangeError(
+      `Unsupported build string version ${version} (expected ${SERIALIZATION_VERSION})`,
+    );
   }
-  const specId  = reader.readBits(16)
-  return { version, specId }
+  const specId = reader.readBits(16);
+  return { version, specId };
 }

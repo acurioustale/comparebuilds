@@ -13,22 +13,22 @@
 
 // Hard ceiling on decoded entries, purely to reject pathological payloads; the
 // store's addBuild enforces the real MAX_BUILDS/MAX_BUILD_LEN limits per build.
-const SANITY_MAX_ENTRIES = 50
+const SANITY_MAX_ENTRIES = 50;
 
 // UTF-8-safe base64url. btoa/atob operate on Latin-1, so route bytes through
 // TextEncoder/TextDecoder to survive non-ASCII build names.
 function b64urlEncode(str) {
-  const bytes = new TextEncoder().encode(str)
-  let bin = ''
-  for (const b of bytes) bin += String.fromCharCode(b)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function b64urlDecode(token) {
-  const b64 = token.replace(/-/g, '+').replace(/_/g, '/')
-  const bin = atob(b64)
-  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
+  const b64 = token.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 /**
@@ -37,12 +37,12 @@ function b64urlDecode(token) {
  * @returns {string}
  */
 export function encodeBuildsHash({ builds, names }) {
-  const payload = { b: builds }
+  const payload = { b: builds };
   // Only carry names when at least one is set, to keep links short.
   if (Array.isArray(names) && names.some((n) => n)) {
-    payload.n = builds.map((_, i) => names[i] ?? '')
+    payload.n = builds.map((_, i) => names[i] ?? "");
   }
-  return b64urlEncode(JSON.stringify(payload))
+  return b64urlEncode(JSON.stringify(payload));
 }
 
 /**
@@ -52,17 +52,19 @@ export function encodeBuildsHash({ builds, names }) {
  * @returns {{ builds: string[], names: string[] } | null}
  */
 export function decodeBuildsHash(token) {
-  if (typeof token !== 'string' || token.length === 0) return null
+  if (typeof token !== "string" || token.length === 0) return null;
   try {
-    const obj = JSON.parse(b64urlDecode(token))
-    if (!obj || !Array.isArray(obj.b)) return null
-    const builds = obj.b.filter((s) => typeof s === 'string').slice(0, SANITY_MAX_ENTRIES)
-    if (builds.length === 0) return null
+    const obj = JSON.parse(b64urlDecode(token));
+    if (!obj || !Array.isArray(obj.b)) return null;
+    const builds = obj.b
+      .filter((s) => typeof s === "string")
+      .slice(0, SANITY_MAX_ENTRIES);
+    if (builds.length === 0) return null;
     const names = builds.map((_, i) =>
-      Array.isArray(obj.n) && typeof obj.n[i] === 'string' ? obj.n[i] : '',
-    )
-    return { builds, names }
+      Array.isArray(obj.n) && typeof obj.n[i] === "string" ? obj.n[i] : "",
+    );
+    return { builds, names };
   } catch {
-    return null
+    return null;
   }
 }

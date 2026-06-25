@@ -5,18 +5,18 @@
 // budgets, hero-subtree exclusivity, gates, and prerequisites — can be unit-tested
 // without a DOM.
 
-import { hasUpperPrereq, gatedPoints } from './treeLogic.js'
+import { hasUpperPrereq, gatedPoints } from "./treeLogic.js";
 
 /**
  * Total points spent in a tree section (class/spec/hero), excluding granted nodes.
  */
 export function sectionPoints(treeType, allNodes, selected) {
-  let total = 0
+  let total = 0;
   for (const n of allNodes) {
-    if (n.alreadyGranted || n.treeType !== treeType) continue
-    total += selected[n.id]?.pointsInvested ?? 0
+    if (n.alreadyGranted || n.treeType !== treeType) continue;
+    total += selected[n.id]?.pointsInvested ?? 0;
   }
-  return total
+  return total;
 }
 
 /**
@@ -25,9 +25,10 @@ export function sectionPoints(treeType, allNodes, selected) {
  */
 export function activeHeroSubtree(allNodes, selected) {
   for (const n of allNodes) {
-    if (n.treeType === 'hero' && !n.alreadyGranted && selected[n.id]) return n.heroSubtree
+    if (n.treeType === "hero" && !n.alreadyGranted && selected[n.id])
+      return n.heroSubtree;
   }
-  return null
+  return null;
 }
 
 /**
@@ -43,12 +44,13 @@ export function activeHeroSubtree(allNodes, selected) {
  * @returns {boolean}
  */
 export function canSpendPoint(node, allNodes, selected, nodeById, budget) {
-  if (node.alreadyGranted) return false
-  if (node.treeType === 'hero') {
-    const activeSub = activeHeroSubtree(allNodes, selected)
-    if (activeSub !== null && activeSub !== node.heroSubtree) return false
+  if (node.alreadyGranted) return false;
+  if (node.treeType === "hero") {
+    const activeSub = activeHeroSubtree(allNodes, selected);
+    if (activeSub !== null && activeSub !== node.heroSubtree) return false;
   }
-  if (sectionPoints(node.treeType, allNodes, selected) >= budget[node.treeType]) return false
-  if (gatedPoints(node, allNodes, selected) < node.spentRequired) return false
-  return hasUpperPrereq(node, selected, nodeById)
+  if (sectionPoints(node.treeType, allNodes, selected) >= budget[node.treeType])
+    return false;
+  if (gatedPoints(node, allNodes, selected) < node.spentRequired) return false;
+  return hasUpperPrereq(node, selected, nodeById);
 }

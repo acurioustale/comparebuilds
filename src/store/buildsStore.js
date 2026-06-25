@@ -1,21 +1,28 @@
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import classesIndex from '../data/classes.json'
-import { parseSpecId, parseBuildString, collectClassNodes } from '../lib/buildString'
-import { buildGrantedSeed } from '../lib/treeLogic'
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import classesIndex from "../data/classes.json";
+import {
+  parseSpecId,
+  parseBuildString,
+  collectClassNodes,
+} from "../lib/buildString";
+import { buildGrantedSeed } from "../lib/treeLogic";
 // NOTE: these limits are mirrored server-side in api/share.php (MAX_BUILDS,
 // MAX_BUILD_LEN). Keep the two in sync — the server rejects anything past them, so
 // validating here too just gives a clearer message before the share round-trip.
-export const MAX_BUILDS = 5
-export const MAX_BUILD_LEN = 2000
+export const MAX_BUILDS = 5;
+export const MAX_BUILD_LEN = 2000;
 // Per-slot name cap. Mirrored server-side in api/share.php (MAX_LABEL_LEN).
-export const MAX_BUILD_NAME_LEN = 40
+export const MAX_BUILD_NAME_LEN = 40;
 
 // Vite creates a lazy chunk per matched file. The glob must be a string literal.
 // Paths are relative to this file (src/store/ → src/data/). classes.json is the
 // statically-imported index, so it's excluded to keep it out of the lazy chunks
 // (and to silence Vite's mixed static/dynamic import warning).
-const CLASS_MODULES = import.meta.glob(['../data/*.json', '!../data/classes.json'])
+const CLASS_MODULES = import.meta.glob([
+  "../data/*.json",
+  "!../data/classes.json",
+]);
 
 // ─── Hero subtree sanitisation ────────────────────────────────────────────────
 
@@ -25,25 +32,30 @@ const CLASS_MODULES = import.meta.glob(['../data/*.json', '!../data/classes.json
  * unchanged when there is zero or one active subtree.
  */
 function sanitizeHeroSubtrees(nodes, treeData) {
-  if (!treeData) return nodes
+  if (!treeData) return nodes;
 
-  const subPoints = {}
+  const subPoints = {};
   for (const n of treeData.nodes) {
-    if (n.treeType !== 'hero' || n.alreadyGranted || !nodes[n.id]) continue
-    subPoints[n.heroSubtree] = (subPoints[n.heroSubtree] ?? 0) + (nodes[n.id].pointsInvested ?? 0)
+    if (n.treeType !== "hero" || n.alreadyGranted || !nodes[n.id]) continue;
+    subPoints[n.heroSubtree] =
+      (subPoints[n.heroSubtree] ?? 0) + (nodes[n.id].pointsInvested ?? 0);
   }
 
-  const subs = Object.keys(subPoints)
-  if (subs.length <= 1) return nodes
+  const subs = Object.keys(subPoints);
+  if (subs.length <= 1) return nodes;
 
-  const keepSub = subs.reduce((a, b) => (subPoints[a] >= subPoints[b] ? a : b))
-  const result = { ...nodes }
+  const keepSub = subs.reduce((a, b) => (subPoints[a] >= subPoints[b] ? a : b));
+  const result = { ...nodes };
   for (const n of treeData.nodes) {
-    if (n.treeType === 'hero' && !n.alreadyGranted && n.heroSubtree !== keepSub) {
-      delete result[n.id]
+    if (
+      n.treeType === "hero" &&
+      !n.alreadyGranted &&
+      n.heroSubtree !== keepSub
+    ) {
+      delete result[n.id];
     }
   }
-  return result
+  return result;
 }
 
 // ─── Module-level helpers ─────────────────────────────────────────────────────
@@ -55,10 +67,10 @@ function sanitizeHeroSubtrees(nodes, treeData) {
  */
 function findClassForSpec(specId) {
   for (const cls of classesIndex) {
-    const spec = cls.specs.find((s) => s.id === specId)
-    if (spec) return { cls, spec }
+    const spec = cls.specs.find((s) => s.id === specId);
+    if (spec) return { cls, spec };
   }
-  return null
+  return null;
 }
 
 /**
@@ -67,15 +79,15 @@ function findClassForSpec(specId) {
  * @returns {Promise<object>}
  */
 async function importClassData(classSlug) {
-  const key = `../data/${classSlug}.json`
-  const loader = CLASS_MODULES[key]
+  const key = `../data/${classSlug}.json`;
+  const loader = CLASS_MODULES[key];
   if (!loader) {
     throw new Error(
       `No local data for "${classSlug}" — run "node scripts/ingestTalentData.js" to generate it`,
-    )
+    );
   }
-  const mod = await loader()
-  return mod.default ?? mod
+  const mod = await loader();
+  return mod.default ?? mod;
 }
 
 /**
@@ -88,11 +100,11 @@ async function importClassData(classSlug) {
 function parseAll(strings, classNodes) {
   return strings.map((s) => {
     try {
-      return parseBuildString(s, classNodes)
+      return parseBuildString(s, classNodes);
     } catch {
-      return null
+      return null;
     }
-  })
+  });
 }
 
 // ─── Async tree-data loader (module-level to cancel stale loads) ──────────────
@@ -100,26 +112,35 @@ function parseAll(strings, classNodes) {
 // Incremented every time a new load starts. The load callback checks this
 // before committing results so a clearAllBuilds() or rapid spec-switch
 // never applies stale data.
-let loadGen = 0
+let loadGen = 0;
 
-async function loadTreeData(set, get, classSlug, specSlug, specId, { preserveInteractive = false } = {}) {
-  const gen = ++loadGen
-  set({ isLoading: true, error: null })
+async function loadTreeData(
+  set,
+  get,
+  classSlug,
+  specSlug,
+  specId,
+  { preserveInteractive = false } = {},
+) {
+  const gen = ++loadGen;
+  set({ isLoading: true, error: null });
 
   try {
-    const classData = await importClassData(classSlug)
+    const classData = await importClassData(classSlug);
 
     // Bail if the store was reset or re-targeted while we were awaiting
-    if (loadGen !== gen) return
+    if (loadGen !== gen) return;
 
-    const classNodes = collectClassNodes(classData)
-    const treeData   = classData.specs[specSlug]
+    const classNodes = collectClassNodes(classData);
+    const treeData = classData.specs[specSlug];
 
     if (!treeData) {
-      throw new Error(`Spec "${specSlug}" not found in class data for "${classSlug}"`)
+      throw new Error(
+        `Spec "${specSlug}" not found in class data for "${classSlug}"`,
+      );
     }
 
-    const currentStrings = get().buildStrings
+    const currentStrings = get().buildStrings;
     set({
       classNodes,
       treeData,
@@ -130,13 +151,17 @@ async function loadTreeData(set, get, classSlug, specSlug, specId, { preserveInt
       // prerequisite checks evaluate against the full effective selection set.
       // Skipped on rehydration (preserveInteractive), where the persisted
       // in-progress selection must survive the reload.
-      ...(currentStrings.length === 0 && !preserveInteractive && {
-        interactiveNodes: buildGrantedSeed(treeData),
-      }),
-    })
+      ...(currentStrings.length === 0 &&
+        !preserveInteractive && {
+          interactiveNodes: buildGrantedSeed(treeData),
+        }),
+    });
   } catch (err) {
-    if (loadGen !== gen) return
-    set({ isLoading: false, error: `Failed to load tree data: ${err.message}` })
+    if (loadGen !== gen) return;
+    set({
+      isLoading: false,
+      error: `Failed to load tree data: ${err.message}`,
+    });
   }
 }
 
@@ -203,7 +228,7 @@ const EMPTY = {
    * MainView renders the interactive tree alongside the comparison view.
    */
   addingBuild: false,
-}
+};
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -224,78 +249,88 @@ const createStore = (set, get) => ({
    */
   addBuild: async (buildString) => {
     // Clear stale error at the start of each attempt
-    set({ error: null })
+    set({ error: null });
 
-    if (!buildString || typeof buildString !== 'string') {
-      set({ error: 'Build string must be a non-empty string.' })
-      return
+    if (!buildString || typeof buildString !== "string") {
+      set({ error: "Build string must be a non-empty string." });
+      return;
     }
 
     if (buildString.length > MAX_BUILD_LEN) {
-      set({ error: `Build string is too long (max ${MAX_BUILD_LEN} characters).` })
-      return
+      set({
+        error: `Build string is too long (max ${MAX_BUILD_LEN} characters).`,
+      });
+      return;
     }
 
-    const { buildStrings, specId: currentSpecId, classNodes, isLoading } = get()
+    const {
+      buildStrings,
+      specId: currentSpecId,
+      classNodes,
+      isLoading,
+    } = get();
 
     if (buildStrings.length >= MAX_BUILDS) {
-      set({ error: `You can compare at most ${MAX_BUILDS} builds at once.` })
-      return
+      set({ error: `You can compare at most ${MAX_BUILDS} builds at once.` });
+      return;
     }
 
     // Reject exact duplicates — comparing a build against itself is pointless,
     // and identical strings would collide as React keys in the slot list.
     if (buildStrings.includes(buildString)) {
-      set({ error: 'That build has already been added.' })
-      return
+      set({ error: "That build has already been added." });
+      return;
     }
 
     // ── Parse just the 24-bit header to identify the spec ────────────────────
-    let header
+    let header;
     try {
-      header = parseSpecId(buildString)
+      header = parseSpecId(buildString);
     } catch (err) {
       // Surface the specific reason for an unsupported version; otherwise treat it
       // as an unreadable header (bad base64, truncation, etc.).
-      const isVersion = err instanceof RangeError && /version/i.test(err.message)
+      const isVersion =
+        err instanceof RangeError && /version/i.test(err.message);
       set({
         error: isVersion
           ? `${err.message}. This build string is from a newer game format than this tool supports.`
-          : 'Could not read the build string header — it may be truncated or corrupt.',
-      })
-      return
+          : "Could not read the build string header — it may be truncated or corrupt.",
+      });
+      return;
     }
 
-    const match = findClassForSpec(header.specId)
+    const match = findClassForSpec(header.specId);
     if (!match) {
       set({
-        error: `Spec ID ${header.specId} was not found in the local class index. ` +
-               `Try re-running the ingest script for the latest data.`,
-      })
-      return
+        error:
+          `Spec ID ${header.specId} was not found in the local class index. ` +
+          `Try re-running the ingest script for the latest data.`,
+      });
+      return;
     }
 
     // ── Reject spec mismatches ────────────────────────────────────────────────
     if (currentSpecId !== null && header.specId !== currentSpecId) {
-      const existingMatch = findClassForSpec(currentSpecId)
+      const existingMatch = findClassForSpec(currentSpecId);
       const existingLabel = existingMatch
         ? `${existingMatch.cls.displayName} — ${existingMatch.spec.displayName}`
-        : `spec ${currentSpecId}`
-      const incomingLabel = `${match.cls.displayName} — ${match.spec.displayName}`
+        : `spec ${currentSpecId}`;
+      const incomingLabel = `${match.cls.displayName} — ${match.spec.displayName}`;
       set({
-        error: `Spec mismatch: loaded builds are ${existingLabel}, ` +
-               `but this string is for ${incomingLabel}.`,
-      })
-      return
+        error:
+          `Spec mismatch: loaded builds are ${existingLabel}, ` +
+          `but this string is for ${incomingLabel}.`,
+      });
+      return;
     }
 
     // ── Append the string ─────────────────────────────────────────────────────
-    const isFirst       = buildStrings.length === 0
-    const newStrings    = [...buildStrings, buildString]
+    const isFirst = buildStrings.length === 0;
+    const newStrings = [...buildStrings, buildString];
     // Append a null placeholder — becomes a real result once classNodes land
-    const newParsed     = [...get().parsedBuilds, null]
+    const newParsed = [...get().parsedBuilds, null];
     // Keep names parallel; new slots start unnamed.
-    const newNames      = [...get().buildNames, '']
+    const newNames = [...get().buildNames, ""];
 
     if (isFirst) {
       // Set identity + kick off tree-data load (specId set synchronously so
@@ -303,22 +338,32 @@ const createStore = (set, get) => ({
       set({
         buildStrings: newStrings,
         parsedBuilds: newParsed,
-        buildNames:   newNames,
-        specId:       header.specId,
-        classId:      match.cls.id,
-      })
-      await loadTreeData(set, get, match.cls.name, match.spec.name, header.specId)
+        buildNames: newNames,
+        specId: header.specId,
+        classId: match.cls.id,
+      });
+      await loadTreeData(
+        set,
+        get,
+        match.cls.name,
+        match.spec.name,
+        header.specId,
+      );
     } else if (classNodes && !isLoading) {
       // Tree data already available — parse the new string immediately
       set({
         buildStrings: newStrings,
         parsedBuilds: parseAll(newStrings, classNodes),
-        buildNames:   newNames,
-      })
+        buildNames: newNames,
+      });
     } else {
       // Tree data is mid-load — store the string now; the load callback will
       // call parseAll(get().buildStrings, …) when it finishes, picking this up
-      set({ buildStrings: newStrings, parsedBuilds: newParsed, buildNames: newNames })
+      set({
+        buildStrings: newStrings,
+        parsedBuilds: newParsed,
+        buildNames: newNames,
+      });
     }
   },
 
@@ -329,19 +374,23 @@ const createStore = (set, get) => ({
    * @param {number} index
    */
   removeBuild: (index) => {
-    const { buildStrings, parsedBuilds, buildNames } = get()
-    if (index < 0 || index >= buildStrings.length) return
+    const { buildStrings, parsedBuilds, buildNames } = get();
+    if (index < 0 || index >= buildStrings.length) return;
 
-    const newStrings = buildStrings.filter((_, i) => i !== index)
-    const newParsed  = parsedBuilds.filter((_, i)  => i !== index)
-    const newNames   = buildNames.filter((_, i)    => i !== index)
+    const newStrings = buildStrings.filter((_, i) => i !== index);
+    const newParsed = parsedBuilds.filter((_, i) => i !== index);
+    const newNames = buildNames.filter((_, i) => i !== index);
 
     if (newStrings.length === 0) {
       // Invalidate any in-flight load so its commit is a no-op
-      loadGen++
-      set({ ...EMPTY })
+      loadGen++;
+      set({ ...EMPTY });
     } else {
-      set({ buildStrings: newStrings, parsedBuilds: newParsed, buildNames: newNames })
+      set({
+        buildStrings: newStrings,
+        parsedBuilds: newParsed,
+        buildNames: newNames,
+      });
     }
   },
 
@@ -349,8 +398,8 @@ const createStore = (set, get) => ({
    * Removes all builds and resets every piece of state to its initial value.
    */
   clearAllBuilds: () => {
-    loadGen++       // cancel any in-flight load
-    set({ ...EMPTY })
+    loadGen++; // cancel any in-flight load
+    set({ ...EMPTY });
   },
 
   /**
@@ -362,13 +411,13 @@ const createStore = (set, get) => ({
    * @param {number} specId
    */
   preloadSpec: async (specId) => {
-    if (get().buildStrings.length > 0) return
+    if (get().buildStrings.length > 0) return;
 
-    const match = findClassForSpec(specId)
-    if (!match) return
+    const match = findClassForSpec(specId);
+    if (!match) return;
 
-    set({ specId, classId: null, interactiveNodes: {}, error: null })
-    await loadTreeData(set, get, match.cls.name, match.spec.name, specId)
+    set({ specId, classId: null, interactiveNodes: {}, error: null });
+    await loadTreeData(set, get, match.cls.name, match.spec.name, specId);
   },
 
   /**
@@ -378,8 +427,8 @@ const createStore = (set, get) => ({
    * @param {Record<number, {pointsInvested: number, entryChosen: number|null}>} nodes
    */
   setInteractiveNodes: (nodes) => {
-    const { treeData } = get()
-    set({ interactiveNodes: sanitizeHeroSubtrees(nodes, treeData) })
+    const { treeData } = get();
+    set({ interactiveNodes: sanitizeHeroSubtrees(nodes, treeData) });
   },
 
   /**
@@ -387,9 +436,9 @@ const createStore = (set, get) => ({
    * to the granted seed and shows the interactive tree alongside the comparison.
    */
   startAddingBuild: () => {
-    const { treeData } = get()
-    if (!treeData) return
-    set({ addingBuild: true, interactiveNodes: buildGrantedSeed(treeData) })
+    const { treeData } = get();
+    if (!treeData) return;
+    set({ addingBuild: true, interactiveNodes: buildGrantedSeed(treeData) });
   },
 
   /** Called after a successful interactive export to hide the interactive tree. */
@@ -401,11 +450,11 @@ const createStore = (set, get) => ({
    * @param {string} name
    */
   setBuildName: (index, name) => {
-    const { buildStrings, buildNames } = get()
-    if (index < 0 || index >= buildStrings.length) return
-    const next = [...buildNames]
-    next[index] = String(name ?? '').slice(0, MAX_BUILD_NAME_LEN)
-    set({ buildNames: next })
+    const { buildStrings, buildNames } = get();
+    if (index < 0 || index >= buildStrings.length) return;
+    const next = [...buildNames];
+    next[index] = String(name ?? "").slice(0, MAX_BUILD_NAME_LEN);
+    set({ buildNames: next });
   },
 
   /**
@@ -414,13 +463,13 @@ const createStore = (set, get) => ({
    * @param {string[]} names
    */
   setBuildNames: (names) => {
-    const { buildStrings } = get()
-    const src = Array.isArray(names) ? names : []
+    const { buildStrings } = get();
+    const src = Array.isArray(names) ? names : [];
     set({
       buildNames: buildStrings.map((_, i) =>
-        typeof src[i] === 'string' ? src[i].slice(0, MAX_BUILD_NAME_LEN) : '',
+        typeof src[i] === "string" ? src[i].slice(0, MAX_BUILD_NAME_LEN) : "",
       ),
-    })
+    });
   },
 
   /**
@@ -432,65 +481,65 @@ const createStore = (set, get) => ({
    * to the granted seed. No-op when nothing was restored.
    */
   rehydrateTreeData: async () => {
-    const { specId } = get()
-    if (specId == null) return
+    const { specId } = get();
+    if (specId == null) return;
 
-    const match = findClassForSpec(specId)
+    const match = findClassForSpec(specId);
     // The persisted spec no longer exists in the data (e.g. a game patch or a
     // data regen removed it). Don't strand the user on saved-but-unloadable
     // builds — clear back to a clean slate.
     if (!match) {
-      loadGen++
-      set({ ...EMPTY })
-      return
+      loadGen++;
+      set({ ...EMPTY });
+      return;
     }
 
     await loadTreeData(set, get, match.cls.name, match.spec.name, specId, {
       preserveInteractive: true,
-    })
+    });
 
     // If the load failed, the restored build strings can never render — discard
     // the stale persisted state rather than leaving a tree-less dead end.
     if (!get().treeData) {
-      loadGen++
-      set({ ...EMPTY })
-      return
+      loadGen++;
+      set({ ...EMPTY });
+      return;
     }
 
     // Keep names parallel to builds even if an older/partial persisted payload
     // had a mismatched length.
-    const { buildStrings, buildNames } = get()
+    const { buildStrings, buildNames } = get();
     if (buildNames.length !== buildStrings.length) {
-      set({ buildNames: buildStrings.map((_, i) => buildNames[i] ?? '') })
+      set({ buildNames: buildStrings.map((_, i) => buildNames[i] ?? "") });
     }
 
     // Drop any restored interactive selections for nodes that no longer exist in
     // the loaded tree, so a stale persisted id can't linger in the selection.
-    const known = new Set(get().treeData.nodes.map((n) => n.id))
-    const current = get().interactiveNodes
-    const reconciled = {}
-    let changed = false
+    const known = new Set(get().treeData.nodes.map((n) => n.id));
+    const current = get().interactiveNodes;
+    const reconciled = {};
+    let changed = false;
     for (const [id, sel] of Object.entries(current)) {
-      if (known.has(Number(id))) reconciled[id] = sel
-      else changed = true
+      if (known.has(Number(id))) reconciled[id] = sel;
+      else changed = true;
     }
-    if (changed) set({ interactiveNodes: reconciled })
+    if (changed) set({ interactiveNodes: reconciled });
   },
-})
+});
 
 export const useBuildsStore = create(
   persist(createStore, {
-    name: 'comparebuilds-state',
+    name: "comparebuilds-state",
     version: 1,
     // Throw (rather than return undefined) when Web Storage is unavailable so
     // createJSONStorage disables persistence cleanly instead of building a
     // wrapper around an undefined store. This keeps the Node test environment,
     // where `localStorage` is not a real Storage, from crashing on writes.
     storage: createJSONStorage(() => {
-      if (typeof localStorage === 'undefined' || !localStorage) {
-        throw new Error('localStorage unavailable')
+      if (typeof localStorage === "undefined" || !localStorage) {
+        throw new Error("localStorage unavailable");
       }
-      return localStorage
+      return localStorage;
     }),
     // Persist only the small, serialisable slices. treeData/classNodes/
     // parsedBuilds are derived and rebuilt on rehydration via rehydrateTreeData.
@@ -507,4 +556,4 @@ export const useBuildsStore = create(
     // is a passthrough; returning the state unchanged keeps current saves valid.
     migrate: (persisted) => persisted,
   }),
-)
+);
