@@ -2,11 +2,10 @@
  * fetchIcons.js
  * -------------
  * Downloads every talent/spec/class icon referenced by src/data/ into
- * public/talent-icons/, so the app can serve icons first-party instead of hotlinking
- * wow.zamimg.com. Third-party icon requests are blocked by common content
- * blockers and browser tracking protection (the icons live on a Fandom/ZAM
- * domain), which left users staring at broken images; same-origin icons are
- * never blocked.
+ * public/talent-icons/, so the app can serve icons first-party instead of
+ * hotlinking a third-party CDN. Third-party icon requests are blocked by common
+ * content blockers and browser tracking protection, which left users staring at
+ * broken images; same-origin icons are never blocked.
  *
  * Like the talent-data ingest, this is a run-when-needed step whose output is
  * committed to the repo — it is NOT part of the build. Re-run it after a data
