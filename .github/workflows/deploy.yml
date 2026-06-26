@@ -78,6 +78,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Well-formedness check on the generated sitemap — catches a templating bug
+      # in prerenderSpecs before deploy. xmllint isn't on the runner image by
+      # default, so install libxml2-utils first.
+      - name: Validate sitemap (xmllint)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          xmllint --noout dist/sitemap.xml
+
   deploy:
     needs: validate
     if: github.event_name != 'pull_request'
@@ -88,7 +97,11 @@ jobs:
       group: deploy-production
       cancel-in-progress: false
     steps:
+      # Full history so prerenderSpecs can derive each sitemap URL's <lastmod>
+      # from the last commit that touched its source data (shallow returns none).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v6

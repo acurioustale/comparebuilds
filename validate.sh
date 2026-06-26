@@ -99,4 +99,16 @@ npm run coverage
 step "Build"
 npm run build
 
+# Validate the freshly built sitemap is well-formed XML — the surest guard against
+# a templating bug in prerenderSpecs (e.g. an unescaped character in a URL). xmllint
+# ships with libxml2 (preinstalled on the CI runner; system libxml2-utils or
+# `brew install libxml2` locally). Skipped with a notice when absent so validate.sh
+# stays runnable everywhere; CI always enforces it.
+if command -v xmllint >/dev/null; then
+	step "Sitemap (xmllint)"
+	xmllint --noout dist/sitemap.xml
+else
+	echo "note: xmllint not installed - skipping sitemap check (CI enforces it)." >&2
+fi
+
 step "All CI checks passed."
