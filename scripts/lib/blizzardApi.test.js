@@ -1,8 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { buildFromNamespaceHref, pruneSiblingDirs } from "./blizzardApi.js";
+import {
+  BlizzardApi,
+  buildFromNamespaceHref,
+  pruneSiblingDirs,
+} from "./blizzardApi.js";
 
 describe("buildFromNamespaceHref", () => {
   it("extracts the wago build from a version-pinned namespace href", () => {
@@ -40,5 +44,60 @@ describe("pruneSiblingDirs", () => {
     expect(() =>
       pruneSiblingDirs(join(tmpdir(), "does-not-exist-xyz"), "x"),
     ).not.toThrow();
+  });
+});
+
+describe("BlizzardApi token refresh on 401", () => {
+  const realFetch = global.fetch;
+  const realEnv = { ...process.env };
+  const jsonRes = (status, body) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  });
+
+  beforeEach(() => {
+    process.env.BLIZZARD_CLIENT_ID = "id";
+    process.env.BLIZZARD_CLIENT_SECRET = "secret";
+    delete process.env.BLIZZARD_CREDENTIALS_FILE;
+  });
+  afterEach(() => {
+    global.fetch = realFetch;
+    process.env = { ...realEnv };
+  });
+
+  it("re-authenticates and retries once on a 401", async () => {
+    let oauthCalls = 0;
+    let dataCalls = 0;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("oauth.battle.net")) {
+        oauthCalls++;
+        return jsonRes(200, { access_token: `t${oauthCalls}` });
+      }
+      dataCalls++;
+      return dataCalls === 1 ? jsonRes(401, {}) : jsonRes(200, { n: dataCalls });
+    });
+
+    const api = new BlizzardApi({ cache: false });
+    const out = await api._fetchJson("https://us.api.blizzard.com/data/wow/x");
+    expect(out).toEqual({ n: 2 });
+    expect(oauthCalls).toBe(2); // token re-fetched after the 401
+    expect(dataCalls).toBe(2); // data request retried exactly once
+  });
+
+  it("throws and does not loop on a persistent 401", async () => {
+    let dataCalls = 0;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("oauth.battle.net"))
+        return jsonRes(200, { access_token: "t" });
+      dataCalls++;
+      return jsonRes(401, {});
+    });
+
+    const api = new BlizzardApi({ cache: false });
+    await expect(
+      api._fetchJson("https://us.api.blizzard.com/data/wow/x"),
+    ).rejects.toThrow(/HTTP 401/);
+    expect(dataCalls).toBe(2); // retried once then gave up
   });
 });

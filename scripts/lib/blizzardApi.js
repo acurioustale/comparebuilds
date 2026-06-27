@@ -175,12 +175,19 @@ export class BlizzardApi {
   }
 
   /** Authenticated GET → JSON, no caching. */
-  async _fetchJson(url) {
+  async _fetchJson(url, retried = false) {
     const token = await this.token();
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(30000),
     });
+    // The bearer token is cached for the process lifetime, so a long ingest can
+    // outlive it (or hit clock skew / a revoked token). On a 401, drop the
+    // cached token and re-authenticate once before giving up.
+    if (res.status === 401 && !retried) {
+      this._token = null;
+      return this._fetchJson(url, true);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
     return res.json();
   }
