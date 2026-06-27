@@ -1,4 +1,4 @@
-import { useRef, useState, cloneElement } from "react";
+import { useRef, useState, useEffect, cloneElement } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -96,6 +96,9 @@ export default function Tooltip({
   // a drag (moved past MOVE_TOL) cancels it, leaving the tap free to spend.
   const holdTimer = useRef(null);
   const holdAt = useRef(null);
+  // Clear a pending hold on unmount so the timer can't fire setOpen on a node
+  // that was removed mid-press (spec switch, build removal, tree collapse).
+  useEffect(() => () => clearTimeout(holdTimer.current), []);
   const holdProps =
     touch === "hold"
       ? {
