@@ -585,11 +585,27 @@ export const useBuildsStore = create(
     // createJSONStorage disables persistence cleanly instead of building a
     // wrapper around an undefined store. This keeps the Node test environment,
     // where `localStorage` is not a real Storage, from crashing on writes.
+    //
+    // When it IS available, wrap writes: a real browser's localStorage can still
+    // throw at write time (quota exceeded, or Safari private mode), and that throw
+    // would otherwise surface inside a state update. Swallow it so persistence
+    // degrades to best-effort ("not saved this session") instead of breaking the
+    // app. Reads pass straight through — getItem does not throw in these modes.
     storage: createJSONStorage(() => {
       if (typeof localStorage === "undefined" || !localStorage) {
         throw new Error("localStorage unavailable");
       }
-      return localStorage;
+      return {
+        getItem: (name) => localStorage.getItem(name),
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, value);
+          } catch {
+            // Best-effort: a failed write must not break a state update.
+          }
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      };
     }),
     // Persist only the small, serialisable slices. treeData/classNodes/
     // parsedBuilds are derived and rebuilt on rehydration via rehydrateTreeData.
