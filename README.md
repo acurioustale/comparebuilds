@@ -205,7 +205,10 @@ brew install shellcheck shfmt php-cs-fixer phpunit actionlint lychee
 ```
 
 Link checking (lychee) runs in its own GitHub workflow, separate from the
-deploy-gating CI; run it locally with `npm run links`.
+deploy-gating CI; run it locally with `npm run links`. PHP static analysis
+(Semgrep) runs the same way — its own non-gating workflow that uploads results to
+GitHub code scanning (the Security tab), covering the `api/*.php` endpoints that
+CodeQL's default setup can't (CodeQL has no PHP support).
 
 ## Talent data
 
@@ -308,6 +311,17 @@ importer that emits the same schema and reuses `ingestCore.js` — the validator
 snapshot, and `compareSources.js` tell you when the output is correct. (Icy Veins
 and Wowhead were earlier sources, removed once Blizzard + DB2 fully replaced
 them.)
+
+## Security
+
+To report a vulnerability, follow the [security policy](SECURITY.md) — please use
+a private channel (GitHub's private vulnerability reporting or email) rather than
+a public issue. The share API's own request hardening and limits are documented
+under "Share link API" above.
+
+Findings from automated scanning surface in the repository's GitHub Security tab:
+CodeQL (JavaScript/TypeScript), Semgrep (the PHP endpoints), and Dependabot for
+vulnerable dependencies, alongside secret-scanning push protection.
 
 ## License
 
