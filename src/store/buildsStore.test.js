@@ -140,6 +140,26 @@ describe("addBuild guards", () => {
   });
 });
 
+describe("addBuild concurrency", () => {
+  test("two concurrent first-builds both land (no clobber)", async () => {
+    const [a, b] = genStrings("death_knight", "blood", 2);
+    // Dispatch both before the first resolves its tree-data load.
+    await Promise.all([get().addBuild(a), get().addBuild(b)]);
+    assert.strictEqual(get().buildStrings.length, 2);
+    assert.deepStrictEqual([...get().buildStrings].sort(), [a, b].sort());
+  });
+
+  test("concurrent first-builds of different specs don't corrupt specId", async () => {
+    const [dk] = genStrings("death_knight", "blood", 1);
+    const [mage] = genStrings("mage", "fire", 1);
+    await Promise.all([get().addBuild(dk), get().addBuild(mage)]);
+    // First commit wins the spec; the other is rejected as a mismatch.
+    assert.strictEqual(get().buildStrings.length, 1);
+    assert.strictEqual(get().specId, DK_BLOOD);
+    assert.deepStrictEqual(get().buildStrings, [dk]);
+  });
+});
+
 // ── Removal / reset ───────────────────────────────────────────────────────────
 
 describe("removeBuild and reset", () => {
@@ -211,6 +231,24 @@ describe("preloadSpec", () => {
   test("ignores an unknown spec id", async () => {
     await get().preloadSpec(999999);
     assert.strictEqual(get().treeData, null);
+  });
+
+  test("re-selecting the current spec keeps an in-progress selection", async () => {
+    await get().preloadSpec(DK_BLOOD);
+    const classNode = get().treeData.nodes.find(
+      (n) => n.treeType === "class" && !n.alreadyGranted,
+    );
+    const sel = { ...get().interactiveNodes };
+    sel[classNode.id] = { pointsInvested: 1, entryChosen: null };
+    get().setInteractiveNodes(sel);
+    assert.ok(get().interactiveNodes[classNode.id], "node was selected");
+
+    // Re-selecting the same spec must not reseed and wipe the selection.
+    await get().preloadSpec(DK_BLOOD);
+    assert.ok(
+      get().interactiveNodes[classNode.id],
+      "selection survives re-selecting the same spec",
+    );
   });
 });
 

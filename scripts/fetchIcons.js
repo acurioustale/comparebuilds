@@ -78,23 +78,31 @@ async function fetchOne(name) {
   const dest = join(OUT_DIR, `${name}.jpg`);
   if (existsSync(dest)) return "skipped";
   let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let lastStatus = 0; // last HTTP status seen (0 = network/timeout error)
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(`${BASE_URL}/${name}.jpg`, {
         signal: AbortSignal.timeout(15000),
       });
-      // 403/404 = no real art (e.g. subtree placeholder names); not an error.
-      if (res.status === 404 || res.status === 403) return "missing";
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length === 0) throw new Error("empty body");
-      writeFileSync(dest, buf);
-      return "downloaded";
+      lastStatus = res.status;
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length === 0) throw new Error("empty body");
+        writeFileSync(dest, buf);
+        return "downloaded";
+      }
+      // 403/404 is usually a placeholder with no real art, but a transient 403
+      // (CDN rate-limit) looks identical — so retry rather than give up here.
+      lastErr = new Error(`HTTP ${res.status}`);
     } catch (err) {
+      lastStatus = 0; // a thrown error isn't a clean HTTP status
       lastErr = err;
     }
   }
-  throw lastErr;
+  // Only a *stable* 403/404 after all retries means "no real art"; a final
+  // network error or 5xx is a genuine failure to surface, not a silent skip.
+  if (lastStatus === 404 || lastStatus === 403) return "missing";
+  throw lastErr ?? new Error("unknown fetch failure");
 }
 
 async function main() {
