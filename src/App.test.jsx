@@ -13,7 +13,6 @@ import App from "./App.jsx";
 import { useBuildsStore } from "./store/buildsStore.js";
 import { collectClassNodes, generateBuildString } from "./lib/buildString.js";
 
-
 const require = createRequire(import.meta.url);
 
 function genStrings(classSlug, specSlug, n) {

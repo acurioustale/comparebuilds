@@ -118,18 +118,20 @@ if (defined('OG_API_NO_MAIN')) {
     return;
 }
 
-// ── Validate id ────────────────────────────────────────────────────────────────
-// Same 8–16 char id space as api/share.php (valid_share_id) and src/lib/route.js;
-// shareIdParity.test.js pins the three copies together.
-$id = $_GET['id'] ?? '';
-if (!is_string($id) || !preg_match('/^[A-Za-z0-9]{8,16}$/', $id)) {
-    bail(400);
-}
-
 // ── Look up the share ───────────────────────────────────────────────────────────
+// Pull in share.php (helpers only — request handling is guarded off) so id
+// validation and DB access share one implementation. valid_share_id is the
+// single source of truth for the id format (mirrored to route.js; pinned by
+// shareIdParity.test.js).
 require_once __DIR__ . '/../../config.php';
 define('SHARE_API_NO_MAIN', true);
 require_once __DIR__ . '/share.php';
+
+$id = $_GET['id'] ?? '';
+if (!is_string($id) || !valid_share_id($id)) {
+    bail(400);
+}
+
 try {
     $pdo = get_db_connection();
     $data = get_share($pdo, $id);

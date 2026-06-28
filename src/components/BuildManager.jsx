@@ -438,7 +438,9 @@ export default function BuildManager() {
         layoutHash,
       });
       // /s/<id> is the server-rendered share page (link previews); it redirects
-      // humans to the SPA. Old #<id> links keep working via the route resolver.
+      // humans to the SPA, which also opens a bare #<id> hash via the route
+      // resolver. (Ids are content-addressed now, so links from before that
+      // migration — old 6-char ids — no longer resolve.)
       const url = `${window.location.origin}/s/${id}`;
       await navigator.clipboard.writeText(url);
       setCopyState("copied");

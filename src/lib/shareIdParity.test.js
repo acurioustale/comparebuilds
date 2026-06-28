@@ -44,18 +44,30 @@ describe("share-id pattern parity across route.js, share.php, og.php", () => {
     for (const p of found) expect(p).toBe(jsPattern);
   });
 
-  test("og.php's share-id regex matches route.js", () => {
-    const found = phpPatterns(ogPhp);
-    expect(found.length).toBeGreaterThan(0);
-    for (const p of found) expect(p).toBe(jsPattern);
+  test("og.php delegates id validation to share.php's valid_share_id", () => {
+    // og.php no longer carries its own copy of the pattern: it includes share.php
+    // and calls valid_share_id, so there is a single PHP source of truth.
+    expect(phpPatterns(ogPhp)).toHaveLength(0);
+    expect(ogPhp).toMatch(/require_once\s+__DIR__\s*\.\s*['"]\/share\.php['"]/);
+    expect(ogPhp).toMatch(/valid_share_id\(/);
   });
 
-  test("share.php ID_LEN matches the validated id length", () => {
+  test("share.php ID_LEN matches the validated id minimum length", () => {
     const m = sharePhp.match(/const\s+ID_LEN\s*=\s*(\d+)/);
     expect(m).not.toBeNull();
-    // The generated id length must equal the {N,M} minimum repeat count in the pattern.
-    const repeat = jsPattern.match(/\{(\d+)(?:,\d+)?\}/);
+    // The generated id length must equal the {N,M} minimum repeat count.
+    const repeat = jsPattern.match(/\{(\d+),(\d+)\}/);
     expect(repeat).not.toBeNull();
     expect(Number(m[1])).toBe(Number(repeat[1]));
+  });
+
+  test("share.php MAX_ID_LEN matches the validated id maximum length", () => {
+    const m = sharePhp.match(/const\s+MAX_ID_LEN\s*=\s*(\d+)/);
+    expect(m).not.toBeNull();
+    // The longest id collision-extension can mint must equal the {N,M} maximum,
+    // or store_share could produce an id valid_share_id/route.js/og.php reject.
+    const repeat = jsPattern.match(/\{(\d+),(\d+)\}/);
+    expect(repeat).not.toBeNull();
+    expect(Number(m[1])).toBe(Number(repeat[2]));
   });
 });

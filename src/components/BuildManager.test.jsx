@@ -148,8 +148,6 @@ describe("BuildManager import flow", () => {
     );
     await screen.findByText(/Share link/i);
     fireEvent.keyDown(document.body, { key: "Escape" });
-    await waitFor(() =>
-      expect(screen.queryByText(/Share link/i)).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText(/Share link/i)).toBeNull());
   });
 });
