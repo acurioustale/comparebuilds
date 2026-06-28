@@ -11,17 +11,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class ShareValidationTest extends TestCase
 {
-    public function testValidShareIdAcceptsSixAlnum(): void
+    public function testValidShareIdAcceptsEightToSixteenAlnum(): void
     {
-        $this->assertTrue(valid_share_id('abc123'));
-        $this->assertTrue(valid_share_id('ABCxyz'));
+        $this->assertTrue(valid_share_id('abc123xyz'));
+        $this->assertTrue(valid_share_id('ABCxyz123456'));
     }
 
     public function testValidShareIdRejectsMalformed(): void
     {
-        $this->assertFalse(valid_share_id('abc'));     // too short
-        $this->assertFalse(valid_share_id('abc1234')); // too long
-        $this->assertFalse(valid_share_id('abc-12'));  // illegal char
+        $this->assertFalse(valid_share_id('abc1234')); // too short (7)
+        $this->assertFalse(valid_share_id('abc12345678901234')); // too long (17)
+        $this->assertFalse(valid_share_id('abc-12345'));  // illegal char
         $this->assertFalse(valid_share_id(''));        // empty
     }
 
@@ -147,5 +147,35 @@ final class ShareValidationTest extends TestCase
             'layoutHash' => str_repeat('x', 17),
         ]);
         $this->assertArrayHasKey('error', $r);
+    }
+
+    public function testBase62EncodeSha256IsDeterministic(): void
+    {
+        $first = base62_encode_sha256('test');
+        $this->assertSame($first, base62_encode_sha256('test'));
+        $this->assertSame(43, strlen($first));
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{43}$/', $first);
+    }
+
+    public function testCanonicalizePayloadIsKeyOrderIndependent(): void
+    {
+        $a = canonicalize_payload(['classId' => 1, 'specId' => 2, 'builds' => ['AA', 'BB']]);
+        $b = canonicalize_payload(['builds' => ['AA', 'BB'], 'specId' => 2, 'classId' => 1]);
+        $this->assertSame($a, $b);
+    }
+
+    public function testBase62OutputUsesFullLowercaseAlphabet(): void
+    {
+        // Ensure the base62 output can contain letters beyond 'v' (w, x, y, z),
+        // which gmp_strval(n, 62) does NOT produce — verifying the fix for the
+        // GMP alphabet mismatch.
+        $chars = '';
+        for ($i = 0; $i < 200; $i++) {
+            $chars .= base62_encode_sha256("probe-$i");
+        }
+        // With 200 hashes (~8600 base62 chars), the probability of never seeing
+        // any of w/x/y/z is vanishingly small (~1e-60 per letter).
+        $this->assertMatchesRegularExpression('/[wxyz]/', $chars,
+            'base62 output should use the full a-z range, not the GMP a-v subset');
     }
 }

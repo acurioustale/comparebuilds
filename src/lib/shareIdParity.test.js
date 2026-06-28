@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// The 6-char share-id format is a cross-stack contract: the SPA route resolver
+// The 8–16 char share-id format is a cross-stack contract: the SPA route resolver
 // (route.js), the share API (api/share.php valid_share_id), and the OG image
 // endpoint (api/og.php) must all accept exactly the same ids — otherwise a
 // /s/<id> page, its preview image, and the in-app link can disagree. There's no
@@ -34,8 +34,8 @@ const phpPatterns = (src) => {
 };
 
 describe("share-id pattern parity across route.js, share.php, og.php", () => {
-  test("route.js defines the 6-char alphanumeric id pattern", () => {
-    expect(jsPattern).toBe("^[A-Za-z0-9]{6}$");
+  test("route.js defines the 8–16 char alphanumeric id pattern", () => {
+    expect(jsPattern).toBe("^[A-Za-z0-9]{8,16}$");
   });
 
   test("share.php's share-id regex matches route.js", () => {
@@ -53,8 +53,8 @@ describe("share-id pattern parity across route.js, share.php, og.php", () => {
   test("share.php ID_LEN matches the validated id length", () => {
     const m = sharePhp.match(/const\s+ID_LEN\s*=\s*(\d+)/);
     expect(m).not.toBeNull();
-    // The generated id length must equal the {N} repeat count in the pattern.
-    const repeat = jsPattern.match(/\{(\d+)\}/);
+    // The generated id length must equal the {N,M} minimum repeat count in the pattern.
+    const repeat = jsPattern.match(/\{(\d+)(?:,\d+)?\}/);
     expect(repeat).not.toBeNull();
     expect(Number(m[1])).toBe(Number(repeat[1]));
   });

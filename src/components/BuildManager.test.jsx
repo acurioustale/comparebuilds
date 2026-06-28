@@ -124,12 +124,12 @@ describe("BuildManager import flow", () => {
     expect(exportBtn).toBeInTheDocument();
     fireEvent.click(exportBtn);
 
-    const shortLinkBtn = await screen.findByText(/Copy short link/i);
-    const instantLinkBtn = await screen.findByText(/Copy instant link/i);
-    expect(shortLinkBtn).toBeInTheDocument();
-    expect(instantLinkBtn).toBeInTheDocument();
+    const shareLinkBtn = await screen.findByText(/Share link/i);
+    const simcBtn = await screen.findByText(/Copy SimC profileset/i);
+    expect(shareLinkBtn).toBeInTheDocument();
+    expect(simcBtn).toBeInTheDocument();
 
-    fireEvent.click(instantLinkBtn);
+    fireEvent.click(shareLinkBtn);
     await waitFor(() => {
       expect(screen.getByText(/Export \/ Share/i)).toBeInTheDocument();
     });
@@ -146,10 +146,10 @@ describe("BuildManager import flow", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: /Export \/ Share/i }),
     );
-    await screen.findByText(/Copy short link/i);
+    await screen.findByText(/Share link/i);
     fireEvent.keyDown(document.body, { key: "Escape" });
     await waitFor(() =>
-      expect(screen.queryByText(/Copy short link/i)).toBeNull(),
+      expect(screen.queryByText(/Share link/i)).toBeNull(),
     );
   });
 });

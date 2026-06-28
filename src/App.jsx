@@ -14,7 +14,7 @@ import {
 } from "./components/treeLayout";
 import FitToWidth from "./components/FitToWidth";
 import { resolveRoute } from "./lib/route";
-import { decodeBuildsHash } from "./lib/shareLink";
+
 import { matchNodeIds } from "./lib/talentSearch";
 import {
   SearchContext,
@@ -495,25 +495,6 @@ function useShareRehydration() {
     // local builds first so they can't trigger a spec-mismatch or linger
     // alongside the shared build.
     clearAllBuilds();
-
-    // Client-side instant link: the builds are encoded in the hash itself, so
-    // no network round-trip is needed.
-    if (route.kind === "client-share") {
-      const decoded = decodeBuildsHash(route.token);
-      if (!decoded) {
-        setShareError("This share link is malformed.");
-        return;
-      }
-      (async () => {
-        if (decoded.layoutHash) setSharedLayoutHash(decoded.layoutHash);
-        for (const buildString of decoded.builds) {
-          await addBuild(buildString);
-        }
-        applyAlignedNames(decoded.builds, decoded.names);
-        history.replaceState(null, "", window.location.pathname);
-      })();
-      return;
-    }
 
     // Server short-link: fetch the stored builds by id.
     (async () => {

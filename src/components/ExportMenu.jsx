@@ -15,7 +15,7 @@ import {
 } from "@floating-ui/react";
 
 // Status → label for a copy action's button. Server copy has a "Saving…" busy
-// state; the client and SimC copies are synchronous so they skip it.
+// state; the SimC copy is synchronous so it skips it.
 function statusLabel(status, idle, busy) {
   if (status === "copying") return busy;
   if (status === "copied") return "Copied!";
@@ -31,9 +31,9 @@ function statusColor(status) {
 }
 
 /**
- * The single share/export entry point: a dropdown collapsing the short link,
- * the self-contained permalink, and the SimC profileset behind one button, each
- * row carrying a one-line description of what it's for.
+ * The single share/export entry point: a dropdown collapsing the share link
+ * and the SimC profileset behind one button, each row carrying a one-line
+ * description of what it's for.
  *
  * Built on @floating-ui/react (as Tooltip is) so it gets dismiss-on-Escape and
  * outside-click, arrow-key roving focus across the items, and proper
@@ -41,10 +41,8 @@ function statusColor(status) {
  */
 export default function ExportMenu({
   onShareServer,
-  onShareClient,
   onShareSimc,
   serverStatus,
-  clientStatus,
   simcStatus,
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -61,17 +59,10 @@ export default function ExportMenu({
   const items = [
     {
       key: "server",
-      label: statusLabel(serverStatus, "Copy short link", "Saving…"),
-      desc: "Best for Discord / Reddit (creates a clean ?id=... link)",
+      label: statusLabel(serverStatus, "Share link", "Saving…"),
+      desc: "Best for Discord / Reddit (creates a clean /s/... link)",
       onSelect: onShareServer,
       status: serverStatus,
-    },
-    {
-      key: "client",
-      label: statusLabel(clientStatus, "Copy instant link", "Saving…"),
-      desc: "Standalone URL with zero server dependency",
-      onSelect: onShareClient,
-      status: clientStatus,
     },
     {
       key: "simc",
