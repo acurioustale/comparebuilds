@@ -523,7 +523,7 @@ const createStore = (set, get) => ({
 
   /**
    * Mirrors addBuildInternal's validation but replaces the build at `index`
-   * while preserving its existing slot name.
+   * with `buildString` while preserving its existing slot name.
    * @param {number} index
    * @param {string} buildString
    */
