@@ -69,13 +69,15 @@ const CHAR_TO_VAL = new Map(CHARSET.split("").map((c, i) => [c, i]));
 
 // ─── Bit reader ───────────────────────────────────────────────────────────────
 
+const PADDING_RE = /=+$/;
+
 class BitReader {
   /** @type {string} */ #str;
   /** @type {number} */ #pos = 0;
 
   /** @param {string} buildString  Base64 string, padding stripped internally. */
   constructor(buildString) {
-    this.#str = buildString.replace(/=+$/, "");
+    this.#str = buildString.replace(PADDING_RE, "");
   }
 
   readBit() {
