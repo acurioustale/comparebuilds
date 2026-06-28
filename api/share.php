@@ -39,6 +39,7 @@ const MAX_ID_LEN        = 16;   // max chars after collision extension
 const BASE62_ALPHABET   = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 // Build strings are base64 (RFC 4648 alphabet, optional padding).
 const BUILD_PATTERN     = '/^[A-Za-z0-9+\/]{1,2000}={0,2}$/';
+const SHARE_ID_PATTERN  = '/^[A-Za-z0-9]{8,16}$/';
 
 /**
  * A share-creation failure the client should see verbatim (rate limit, server
@@ -158,7 +159,7 @@ function client_ip_hash(): string
  */
 function valid_share_id(string $id): bool
 {
-    return preg_match('/^[A-Za-z0-9]{8,16}$/', $id) === 1;
+    return preg_match(SHARE_ID_PATTERN, $id) === 1;
 }
 
 /**
