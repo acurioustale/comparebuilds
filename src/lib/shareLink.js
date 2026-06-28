@@ -1,82 +1,38 @@
-// ─── Client-side share links ──────────────────────────────────────────────────
+// ─── Server-side share links ──────────────────────────────────────────────────
 //
-// Encodes builds (and optional per-slot names) into a URL-hash payload so a build
-// can be shared with no server round-trip — no DB row, no rate limit, works
-// offline. This is the sibling of the server short-link API (api/share.php): the
-// server link is the pretty, persistent option; this is the instant one.
-//
-// The payload is base64url(JSON) of `{ b: string[], n?: string[] }`. Build
-// strings are themselves base64, so wrapping the JSON in base64url keeps the
-// whole token within the URL-safe alphabet (A–Z a–z 0–9 - _) with no escaping.
-// JSON (rather than a bespoke delimiter format) keeps names — which may contain
-// arbitrary Unicode — unambiguous.
-
-// Hard ceiling on decoded entries, purely to reject pathological payloads; the
-// store's addBuild enforces the real MAX_BUILDS/MAX_BUILD_LEN limits per build.
-const SANITY_MAX_ENTRIES = 50;
-
-// UTF-8-safe base64url. btoa/atob operate on Latin-1, so route bytes through
-// TextEncoder/TextDecoder to survive non-ASCII build names.
-function b64urlEncode(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function b64urlDecode(token) {
-  const b64 = token.replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64);
-  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
+// Creates persistent, content-addressed share links (/s/<id>) backed by the server.
 
 /**
- * Encodes builds + optional names into a hash token (the part after `#b=`).
- * @param {{ builds: string[], names?: (string|null|undefined)[], layoutHash?: string|null }} input
- * @returns {string}
+ * POSTs build data to the share API and returns the generated short-link ID.
+ * @param {{ classId: number, specId: number, builds: string[], labels?: string[], className: string, specName: string, layoutHash?: string|null }} payload
+ * @returns {Promise<{ id: string }>}
  */
-export function encodeBuildsHash({ builds, names, layoutHash }) {
-  const payload = { b: builds };
-  if (layoutHash) payload.h = layoutHash;
-  // Only carry names when at least one is set, to keep links short.
-  if (Array.isArray(names) && names.some((n) => n)) {
-    payload.n = builds.map((_, i) => names[i] ?? "");
+export async function createServerShare({
+  classId,
+  specId,
+  builds,
+  labels,
+  className,
+  specName,
+  layoutHash,
+}) {
+  const apiBase = import.meta.env.BASE_URL + "api/share.php";
+  const res = await fetch(apiBase, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      classId,
+      specId,
+      builds,
+      labels,
+      className,
+      specName,
+      layoutHash,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `HTTP ${res.status}`);
   }
-  return b64urlEncode(JSON.stringify(payload));
-}
-
-/**
- * Decodes a hash token back into builds + names. Returns null for anything
- * malformed so the caller can fall back gracefully.
- * @param {string} token  The value after `#b=`.
- * @returns {{ builds: string[], names: string[], layoutHash: string|null } | null}
- */
-export function decodeBuildsHash(token) {
-  if (typeof token !== "string" || token.length === 0) return null;
-  try {
-    const obj = JSON.parse(b64urlDecode(token));
-    if (!obj || !Array.isArray(obj.b)) return null;
-    // Walk b and n in lockstep so each name stays keyed to its build's ORIGINAL
-    // index — filtering b first and then indexing n by the post-filter position
-    // would shift every later name onto the wrong build the moment b contains a
-    // non-string entry.
-    const builds = [];
-    const names = [];
-    for (
-      let i = 0;
-      i < obj.b.length && builds.length < SANITY_MAX_ENTRIES;
-      i++
-    ) {
-      if (typeof obj.b[i] !== "string") continue;
-      builds.push(obj.b[i]);
-      names.push(
-        Array.isArray(obj.n) && typeof obj.n[i] === "string" ? obj.n[i] : "",
-      );
-    }
-    if (builds.length === 0) return null;
-    return { builds, names, layoutHash: obj.h ?? null };
-  } catch {
-    return null;
-  }
+  return res.json();
 }

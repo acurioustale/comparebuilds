@@ -12,7 +12,6 @@ import { createRequire } from "node:module";
 import App from "./App.jsx";
 import { useBuildsStore } from "./store/buildsStore.js";
 import { collectClassNodes, generateBuildString } from "./lib/buildString.js";
-import { encodeBuildsHash } from "./lib/shareLink.js";
 
 const require = createRequire(import.meta.url);
 
@@ -103,7 +102,7 @@ describe("share rehydration", () => {
   test("loads builds referenced by the URL hash", async () => {
     const builds = genStrings("death_knight", "blood", 2);
     const fetchMock = mockShareFetch(builds);
-    window.location.hash = "#abc123";
+    window.location.hash = "#abc123xy";
 
     render(<App />);
 
@@ -125,7 +124,7 @@ describe("share rehydration", () => {
   test("rehydration runs only once under StrictMode", async () => {
     const builds = genStrings("death_knight", "blood", 2);
     const fetchMock = mockShareFetch(builds);
-    window.location.hash = "#abcdef";
+    window.location.hash = "#abcdefgh";
 
     render(
       <StrictMode>
@@ -137,19 +136,6 @@ describe("share rehydration", () => {
     // The useRef guard prevents StrictMode's double effect invocation from
     // fetching (and adding the builds) twice.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  test("loads builds from a client-side #b= instant link without any fetch", async () => {
-    const builds = genStrings("death_knight", "blood", 2);
-    const fetchMock = vi.fn();
-    global.fetch = fetchMock;
-    window.location.hash = "#b=" + encodeBuildsHash({ builds });
-
-    render(<App />);
-
-    expect(await screen.findByText(/Differences/)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(window.location.hash).toBe("");
   });
 });
 

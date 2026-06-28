@@ -8,7 +8,7 @@
 # SPA at /#<id>). Requires mod_rewrite; harmless if the module is absent.
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^s/([A-Za-z0-9]{6})$ api/share.php?page=1&id=$1 [L,QSA]
+  RewriteRule ^s/([A-Za-z0-9]{8,16})$ api/share.php?page=1&id=$1 [L,QSA]
 </IfModule>
 
 

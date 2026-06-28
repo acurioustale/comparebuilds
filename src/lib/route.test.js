@@ -3,24 +3,16 @@ import assert from "node:assert/strict";
 import { resolveRoute, specIdForPath } from "./route.js";
 
 describe("resolveRoute", () => {
-  test("a 6-char alphanumeric hash is a server short-link", () => {
-    assert.deepStrictEqual(resolveRoute({ hash: "#aB3xZ9" }), {
+  test("an 8-char alphanumeric hash is a server short-link", () => {
+    assert.deepStrictEqual(resolveRoute({ hash: "#aB3xZ9mK" }), {
       kind: "server-share",
-      id: "aB3xZ9",
+      id: "aB3xZ9mK",
     });
   });
 
-  test("a #b= hash is a client-side instant link", () => {
+  test("a legacy #b= hash falls back to local", () => {
     assert.deepStrictEqual(resolveRoute({ hash: "#b=SOMETOKEN" }), {
-      kind: "client-share",
-      token: "SOMETOKEN",
-    });
-  });
-
-  test("an empty client token still resolves as client-share (decode rejects it later)", () => {
-    assert.deepStrictEqual(resolveRoute({ hash: "#b=" }), {
-      kind: "client-share",
-      token: "",
+      kind: "local",
     });
   });
 
@@ -32,9 +24,22 @@ describe("resolveRoute", () => {
     assert.deepStrictEqual(resolveRoute({ hash: "#something-else" }), {
       kind: "local",
     });
-    // A 5- or 7-char hash is not a valid share id.
-    assert.deepStrictEqual(resolveRoute({ hash: "#abcde" }), { kind: "local" });
+    // A 7-char hash is not a valid share id (min 8).
     assert.deepStrictEqual(resolveRoute({ hash: "#abcdefg" }), {
+      kind: "local",
+    });
+  });
+
+  test("a 16-char hash is accepted (upper boundary)", () => {
+    assert.deepStrictEqual(resolveRoute({ hash: "#aB3xZ9mKpQ4rS7t" }), {
+      kind: "server-share",
+      id: "aB3xZ9mKpQ4rS7t",
+    });
+  });
+
+  test("a 17-char hash is rejected (exceeds upper boundary)", () => {
+    // "aB3xZ9mKpQ4rS7tU" is 16 chars; adding one more makes 17.
+    assert.deepStrictEqual(resolveRoute({ hash: "#aB3xZ9mKpQ4rS7tUv" }), {
       kind: "local",
     });
   });
@@ -53,8 +58,8 @@ describe("resolveRoute", () => {
 
   test("a share hash beats a spec path", () => {
     assert.deepStrictEqual(
-      resolveRoute({ hash: "#aB3xZ9", pathname: "/death-knight/blood" }),
-      { kind: "server-share", id: "aB3xZ9" },
+      resolveRoute({ hash: "#aB3xZ9mK", pathname: "/death-knight/blood" }),
+      { kind: "server-share", id: "aB3xZ9mK" },
     );
   });
 

@@ -7,7 +7,7 @@ import {
   MAX_BUILDS,
   MAX_BUILD_NAME_LEN,
 } from "../store/buildsStore";
-import { encodeBuildsHash } from "../lib/shareLink";
+import { createServerShare } from "../lib/shareLink";
 import classesIndex from "../data/classes.json";
 import { iconUrl, onIconError } from "../lib/iconUrl";
 import { activeHeroSubtree, sectionPoints } from "../lib/spendRules";
@@ -388,16 +388,13 @@ export default function BuildManager() {
   );
 
   const [copyState, setCopyState] = useState("idle"); // 'idle' | 'copying' | 'copied' | 'error'
-  const [permalinkState, setPermalinkState] = useState("idle"); // 'idle' | 'copied' | 'error'
   const [simcState, setSimcState] = useState("idle"); // 'idle' | 'copied' | 'error'
   // Reset timers, cleared on unmount so they can't fire setState on a removed
   // share-controls component (e.g. clearing all builds within the 2s window).
-  const permalinkTimer = useRef(null);
   const copyTimer = useRef(null);
   const simcTimer = useRef(null);
   useEffect(
     () => () => {
-      clearTimeout(permalinkTimer.current);
       clearTimeout(copyTimer.current);
       clearTimeout(simcTimer.current);
     },
@@ -426,58 +423,24 @@ export default function BuildManager() {
     activeClass?.specs.find((s) => s.id === specId)?.displayName ?? "";
   const classDisplayName = activeClass?.displayName ?? "";
 
-  // Permalink: encodes the builds straight into the URL hash — self-contained, so
-  // it never expires and needs no server (unlike the short link), at the cost of a
-  // long URL with no preview.
-  const handleCopyPermalink = useCallback(async () => {
-    if (permalinkState !== "idle") return;
-    try {
-      const token = encodeBuildsHash({
-        builds: buildStrings,
-        names: buildNames,
-        layoutHash,
-      });
-      const url = `${window.location.origin}${window.location.pathname}#b=${token}`;
-      await navigator.clipboard.writeText(url);
-      setPermalinkState("copied");
-    } catch {
-      setPermalinkState("error");
-    } finally {
-      permalinkTimer.current = setTimeout(
-        () => setPermalinkState("idle"),
-        2000,
-      );
-    }
-  }, [permalinkState, buildStrings, buildNames, layoutHash]);
-
   const handleCopyLink = useCallback(async () => {
     if (copyState !== "idle") return;
     setCopyState("copying");
     try {
-      const apiBase = import.meta.env.BASE_URL + "api/share.php";
-      // Include labels only when at least one slot is named, plus the display
-      // names the OG-image endpoint needs (it has no class index to look them up).
       const labels = buildNames.some(Boolean) ? buildNames : undefined;
-      const res = await fetch(apiBase, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          classId,
-          specId,
-          builds: buildStrings,
-          labels,
-          className: classDisplayName,
-          specName: specDisplayName,
-          layoutHash,
-        }),
+      const { id } = await createServerShare({
+        classId,
+        specId,
+        builds: buildStrings,
+        labels,
+        className: classDisplayName,
+        specName: specDisplayName,
+        layoutHash,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
-      const { id } = await res.json();
       // /s/<id> is the server-rendered share page (link previews); it redirects
-      // humans to the SPA. Old #<id> links keep working via the route resolver.
+      // humans to the SPA, which also opens a bare #<id> hash via the route
+      // resolver. (Ids are content-addressed now, so links from before that
+      // migration — old 6-char ids — no longer resolve.)
       const url = `${window.location.origin}/s/${id}`;
       await navigator.clipboard.writeText(url);
       setCopyState("copied");
@@ -657,10 +620,8 @@ export default function BuildManager() {
         <section className="flex justify-end items-center gap-2 pt-3 border-t border-wow-dim">
           <ExportMenu
             onShareServer={handleCopyLink}
-            onShareClient={handleCopyPermalink}
             onShareSimc={handleCopySimc}
             serverStatus={copyState}
-            clientStatus={permalinkState}
             simcStatus={simcState}
           />
         </section>

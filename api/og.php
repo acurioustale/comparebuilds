@@ -118,34 +118,31 @@ if (defined('OG_API_NO_MAIN')) {
     return;
 }
 
-// ── Validate id ────────────────────────────────────────────────────────────────
-// Same 6-char id space as api/share.php (valid_share_id) and src/lib/route.js;
-// shareIdParity.test.js pins the three copies together.
+// ── Look up the share ───────────────────────────────────────────────────────────
+// Pull in share.php (helpers only — request handling is guarded off) so id
+// validation and DB access share one implementation. valid_share_id is the
+// single source of truth for the id format (mirrored to route.js; pinned by
+// shareIdParity.test.js).
+require_once __DIR__ . '/../../config.php';
+define('SHARE_API_NO_MAIN', true);
+require_once __DIR__ . '/share.php';
+
 $id = $_GET['id'] ?? '';
-if (!is_string($id) || !preg_match('/^[A-Za-z0-9]{6}$/', $id)) {
+if (!is_string($id) || !valid_share_id($id)) {
     bail(400);
 }
 
-// ── Look up the share ───────────────────────────────────────────────────────────
-require_once __DIR__ . '/../../config.php';
 try {
-    $pdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER,
-        DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
-    );
-    $stmt = $pdo->prepare('SELECT data FROM comparebuilds_shares WHERE id = ?');
-    $stmt->execute([$id]);
-    $row = $stmt->fetch();
+    $pdo = get_db_connection();
+    $data = get_share($pdo, $id);
 } catch (Throwable $e) {
     bail(500);
 }
-if (!$row) {
+if (!$data) {
     bail(404);
 }
 
-$data      = json_decode($row['data'], true) ?: [];
+$data      = json_decode($data, true) ?: [];
 $classId   = (int) ($data['classId'] ?? 0);
 $builds    = is_array($data['builds'] ?? null) ? $data['builds'] : [];
 $className  = is_string($data['className'] ?? null) && $data['className'] !== ''

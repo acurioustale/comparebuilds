@@ -11,17 +11,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class ShareValidationTest extends TestCase
 {
-    public function testValidShareIdAcceptsSixAlnum(): void
+    public function testValidShareIdAcceptsEightToSixteenAlnum(): void
     {
-        $this->assertTrue(valid_share_id('abc123'));
-        $this->assertTrue(valid_share_id('ABCxyz'));
+        $this->assertTrue(valid_share_id('abc123xyz'));
+        $this->assertTrue(valid_share_id('ABCxyz123456'));
     }
 
     public function testValidShareIdRejectsMalformed(): void
     {
-        $this->assertFalse(valid_share_id('abc'));     // too short
-        $this->assertFalse(valid_share_id('abc1234')); // too long
-        $this->assertFalse(valid_share_id('abc-12'));  // illegal char
+        $this->assertFalse(valid_share_id('abc1234')); // too short (7)
+        $this->assertFalse(valid_share_id('abc12345678901234')); // too long (17)
+        $this->assertFalse(valid_share_id('abc-12345'));  // illegal char
         $this->assertFalse(valid_share_id(''));        // empty
     }
 
@@ -147,5 +147,71 @@ final class ShareValidationTest extends TestCase
             'layoutHash' => str_repeat('x', 17),
         ]);
         $this->assertArrayHasKey('error', $r);
+    }
+
+    public function testBase62EncodeSha256IsDeterministic(): void
+    {
+        $first = base62_encode_sha256('test');
+        $this->assertSame($first, base62_encode_sha256('test'));
+        // base62 of a 256-bit hash is variable length (it has no fixed-width
+        // padding beyond the ID_LEN floor): ~43 chars, but 42 (and rarely 41)
+        // occur when the high base62 digit is zero, so don't pin an exact length.
+        $this->assertGreaterThanOrEqual(8, strlen($first));
+        $this->assertLessThanOrEqual(43, strlen($first));
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]+$/', $first);
+    }
+
+    public function testBase62FallbackMatchesGmp(): void
+    {
+        if (!function_exists('gmp_init')) {
+            $this->markTestSkipped('GMP not available to compare against');
+        }
+        // The pure-PHP fallback (used on hosts without GMP) must produce byte-for-
+        // byte identical ids to the GMP path, or the same payload would address
+        // different rows depending on the host.
+        foreach (['test', '', 'a', 'hello world', 'probe-0', 'probe-42', '{"classId":1}'] as $in) {
+            $hex = hash('sha256', $in);
+            $this->assertSame(
+                base62_from_hex_gmp($hex),
+                base62_from_hex_php($hex),
+                "GMP and fallback base62 diverge for input: $in"
+            );
+        }
+    }
+
+    public function testBase62FallbackTerminatesAndIsAlphanumeric(): void
+    {
+        // Directly exercises the pure-PHP fallback (the GMP path is what runs in
+        // CI, so without this the fallback would ship untested).
+        for ($i = 0; $i < 50; $i++) {
+            $out = base62_from_hex_php(hash('sha256', "fallback-$i"));
+            $this->assertGreaterThanOrEqual(8, strlen($out));
+            $this->assertMatchesRegularExpression('/^[A-Za-z0-9]+$/', $out);
+        }
+    }
+
+    public function testCanonicalizePayloadIsKeyOrderIndependent(): void
+    {
+        $a = canonicalize_payload(['classId' => 1, 'specId' => 2, 'builds' => ['AA', 'BB']]);
+        $b = canonicalize_payload(['builds' => ['AA', 'BB'], 'specId' => 2, 'classId' => 1]);
+        $this->assertSame($a, $b);
+    }
+
+    public function testBase62OutputUsesFullLowercaseAlphabet(): void
+    {
+        // Ensure the base62 output can contain letters beyond 'v' (w, x, y, z),
+        // which gmp_strval(n, 62) does NOT produce — verifying the fix for the
+        // GMP alphabet mismatch.
+        $chars = '';
+        for ($i = 0; $i < 200; $i++) {
+            $chars .= base62_encode_sha256("probe-$i");
+        }
+        // With 200 hashes (~8600 base62 chars), the probability of never seeing
+        // any of w/x/y/z is vanishingly small (~1e-60 per letter).
+        $this->assertMatchesRegularExpression(
+            '/[wxyz]/',
+            $chars,
+            'base62 output should use the full a-z range, not the GMP a-v subset'
+        );
     }
 }

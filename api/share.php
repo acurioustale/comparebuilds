@@ -7,12 +7,17 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: no-referrer');
-header('Cache-Control: no-store');
-// No CORS headers are sent on purpose: the browser will block cross-origin reads
-// and writes, so only the site itself (same origin) can use this API.
+// Response headers are only emitted when share.php handles a request itself.
+// When included by og.php (via SHARE_API_NO_MAIN) for helper functions only,
+// skip them so og.php can set its own Content-Type.
+if (!defined('SHARE_API_NO_MAIN')) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: no-referrer');
+    header('Cache-Control: no-store');
+    // No CORS headers are sent on purpose: the browser will block cross-origin reads
+    // and writes, so only the site itself (same origin) can use this API.
+}
 
 // ─── Limits / config ───────────────────────────────────────────────────────────
 // MAX_BUILDS / MAX_BUILD_LEN are mirrored client-side in src/store/buildsStore.js.
@@ -27,10 +32,31 @@ const MAX_NAME_LEN      = 64;    // class/spec display-name cap (used by the OG 
 const RATE_LIMIT_MAX    = 20;    // max shares one IP may create per window
 const RATE_LIMIT_WINDOW = 3600;  // window length in seconds (1 hour)
 const SHARE_TTL_DAYS    = 90;    // rows older than this are pruned
-const ID_LEN            = 6;
-const ID_ALPHABET       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const ID_LEN            = 8;
+const MAX_ID_LEN        = 16;   // max chars after collision extension
+// Content-address id alphabet (base62). Self-consistent across the GMP and
+// pure-PHP encoders below; deliberately not the ordering gmp_strval(…, 62) uses.
+const BASE62_ALPHABET   = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 // Build strings are base64 (RFC 4648 alphabet, optional padding).
 const BUILD_PATTERN     = '/^[A-Za-z0-9+\/]{1,2000}={0,2}$/';
+
+/**
+ * A share-creation failure the client should see verbatim (rate limit, server
+ * busy, id exhaustion). Carrying the HTTP status and optional Retry-After on the
+ * exception lets the request handler map failures structurally instead of
+ * matching on message strings; unexpected DB/runtime errors stay plain
+ * Throwables so they land on the generic "Database error" path and never leak.
+ */
+class ShareException extends RuntimeException
+{
+    public function __construct(
+        public readonly int $httpStatus,
+        string $clientMessage,
+        public readonly ?int $retryAfter = null,
+    ) {
+        parent::__construct($clientMessage);
+    }
+}
 
 /** Emit a JSON error and stop. */
 function fail(int $code, string $msg): void
@@ -126,13 +152,13 @@ function client_ip_hash(): string
 }
 
 /**
- * Whether a string is a well-formed share id (the 6-char id space). The pattern
- * is mirrored in src/lib/route.js and api/og.php; shareIdParity.test.js keeps the
- * three copies in sync across the two languages.
+ * Whether a string is a well-formed share id (8–16 alphanumeric chars). The
+ * pattern is mirrored in src/lib/route.js and api/og.php; shareIdParity.test.js
+ * keeps the three copies in sync across the two languages.
  */
 function valid_share_id(string $id): bool
 {
-    return preg_match('/^[A-Za-z0-9]{6}$/', $id) === 1;
+    return preg_match('/^[A-Za-z0-9]{8,16}$/', $id) === 1;
 }
 
 /**
@@ -218,20 +244,88 @@ function validate_share_input(mixed $body): array
     return ['payload' => $payload];
 }
 
-// When this file is included for unit testing (with SHARE_API_NO_MAIN defined),
-// stop here: everything above is pure and testable, everything below opens a DB
-// connection and handles the live request.
-if (defined('SHARE_API_NO_MAIN')) {
-    return;
+/**
+ * Base62-encodes the SHA-256 hash of a string — the content-address id space.
+ * Prefers GMP; falls back to pure-PHP big-integer division so it works on hosts
+ * without the extension. The two paths are pinned to identical output by
+ * ShareValidationTest (testBase62FallbackMatchesGmp).
+ */
+function base62_encode_sha256(string $input): string
+{
+    return base62_from_hex(hash('sha256', $input));
 }
 
-// ─── DB connection ────────────────────────────────────────────────────────────
-// config.php lives one level above the web root so it is never publicly
-// accessible. Adjust the path if your host's directory layout differs.
-require_once __DIR__ . '/../../config.php';
+/** Dispatches to the GMP or pure-PHP base62 encoder for a hex string. */
+function base62_from_hex(string $hex): string
+{
+    return function_exists('gmp_init')
+        ? base62_from_hex_gmp($hex)
+        : base62_from_hex_php($hex);
+}
 
-try {
-    $pdo = new PDO(
+/** GMP-backed base62 of a hex string (left-padded to a minimum of ID_LEN). */
+function base62_from_hex_gmp(string $hex): string
+{
+    $num = gmp_init($hex, 16);
+    $base62 = '';
+    while (gmp_cmp($num, 0) > 0) {
+        list($num, $rem) = gmp_div_qr($num, 62);
+        $base62 = BASE62_ALPHABET[gmp_intval($rem)] . $base62;
+    }
+    return str_pad($base62, ID_LEN, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Pure-PHP base62 of a hex string. Long-divides the number by 62 one hex nibble
+ * at a time (most-significant first), so place value stays exact regardless of
+ * the running quotient's length and the per-nibble accumulator never overflows a
+ * PHP int (61*16+15 = 991). Output is identical to the GMP path.
+ */
+function base62_from_hex_php(string $hex): string
+{
+    $digits = array_map('hexdec', str_split($hex)); // base-16 digits, MSB first
+    $len = count($digits);
+    $start = 0;
+    $base62 = '';
+    while ($start < $len) {
+        $remainder = 0;
+        for ($i = $start; $i < $len; $i++) {
+            $acc = $remainder * 16 + $digits[$i];
+            $digits[$i] = intdiv($acc, 62);
+            $remainder = $acc % 62;
+        }
+        $base62 = BASE62_ALPHABET[$remainder] . $base62;
+        // Drop leading zero digits the division has consumed.
+        while ($start < $len && $digits[$start] === 0) {
+            $start++;
+        }
+    }
+    return str_pad($base62, ID_LEN, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Deterministically canonicalizes the payload for content-addressing.
+ */
+function canonicalize_payload(array $payload): string
+{
+    $ordered = [];
+    foreach (['classId', 'specId', 'className', 'specName', 'layoutHash', 'builds', 'labels'] as $key) {
+        if (isset($payload[$key])) {
+            $ordered[$key] = $payload[$key];
+        }
+    }
+    return json_encode($ordered, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/**
+ * Opens a new PDO connection to the share database. Schema creation is a
+ * separate step (ensure_share_schema) run only on the write path, so the
+ * read-only endpoints — the GET fetch and the OG image — don't pay a DDL
+ * round-trip on every request.
+ */
+function get_db_connection(): PDO
+{
+    return new PDO(
         'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
         DB_USER,
         DB_PASS,
@@ -241,18 +335,160 @@ try {
             PDO::ATTR_EMULATE_PREPARES   => false,
         ],
     );
+}
 
-    // Create table on first run — cheap no-op afterwards.
+/** Creates the shares table if it doesn't exist. Cheap no-op once present. */
+function ensure_share_schema(PDO $pdo): void
+{
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS comparebuilds_shares (
-            id         CHAR(6)    NOT NULL PRIMARY KEY,
-            data       MEDIUMTEXT NOT NULL,
-            ip_hash    CHAR(64)   NULL,
-            created_at TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            id         VARCHAR(32) NOT NULL PRIMARY KEY,
+            data       MEDIUMTEXT  NOT NULL,
+            ip_hash    CHAR(64)    NULL,
+            created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_created (created_at),
             INDEX idx_ip_created (ip_hash, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+}
+
+/** True if a PDOException is a MySQL duplicate-key (ER_DUP_ENTRY) violation. */
+function is_duplicate_key_error(PDOException $e): bool
+{
+    return ($e->errorInfo[1] ?? null) === 1062;
+}
+
+/**
+ * Stores a share payload and returns its content-addressed id. Identical content
+ * deduplicates to the same id — idempotently, even against a concurrent write of
+ * the same build from another IP. Enforces the per-IP rate limit and prunes
+ * expired rows. Throws ShareException for client-visible failures.
+ */
+function store_share(PDO $pdo, array $payload, string $ipHash): string
+{
+    ensure_share_schema($pdo);
+
+    // Serialize the rate-limit check and the insert per IP via an advisory lock
+    // so a burst from one IP can't each read a below-limit count before any of
+    // them inserts (a TOCTOU race that would let the per-IP cap be exceeded).
+    $lockName = 'cb_share_' . substr($ipHash, 0, 48);
+    $lk = $pdo->prepare('SELECT GET_LOCK(?, 5)');
+    $lk->execute([$lockName]);
+    if ((int) $lk->fetchColumn() !== 1) {
+        throw new ShareException(503, 'Server busy — please try again', 5);
+    }
+
+    $id = null;
+    try {
+        // ── Per-IP rate limit ────────────────────────────────────────────────
+        // Bound the window against the DB clock (NOW()), not a PHP timestamp, so a
+        // timezone/DST skew can't shift it. The window is a trusted constant.
+        $rl = $pdo->prepare(
+            'SELECT COUNT(*) AS c FROM comparebuilds_shares '
+            . 'WHERE ip_hash = ? AND created_at > NOW() - INTERVAL ' . RATE_LIMIT_WINDOW . ' SECOND'
+        );
+        $rl->execute([$ipHash]);
+        if ((int) $rl->fetch()['c'] >= RATE_LIMIT_MAX) {
+            throw new ShareException(429, 'Too many shares created — please try again later', RATE_LIMIT_WINDOW);
+        }
+
+        // ── Prune expired rows (best-effort) ─────────────────────────────────
+        try {
+            $prune = $pdo->prepare(
+                'DELETE FROM comparebuilds_shares '
+                . 'WHERE created_at < NOW() - INTERVAL ' . (SHARE_TTL_DAYS * 86400) . ' SECOND'
+            );
+            $prune->execute();
+        } catch (Throwable $e) {
+            // Non-fatal — proceed even if cleanup fails.
+        }
+
+        // ── Content-addressing & deduplication ───────────────────────────────
+        // The stored blob IS the canonical form, so the bytes we hash for the id,
+        // the bytes we compare on collision, and the bytes we persist are one and
+        // the same string — identical content always dedupes to the same id.
+        $stored = canonicalize_payload($payload);
+        $baseId = base62_encode_sha256($stored);
+
+        $check  = $pdo->prepare('SELECT data FROM comparebuilds_shares WHERE id = ?');
+        $insert = $pdo->prepare('INSERT INTO comparebuilds_shares (id, data, ip_hash) VALUES (?, ?, ?)');
+
+        // Use the 8-char prefix of the hash; on a collision with *different*
+        // content, lengthen the prefix (10, 12, … up to MAX_ID_LEN) and retry.
+        $maxLen = min(strlen($baseId), MAX_ID_LEN);
+        for ($len = ID_LEN; $len <= $maxLen; $len += 2) {
+            $candidate = substr($baseId, 0, $len);
+            $check->execute([$candidate]);
+            $row = $check->fetch();
+
+            if ($row) {
+                if ($row['data'] === $stored) {
+                    $id = $candidate; // identical content already stored
+                    break;
+                }
+                continue; // different content at this prefix — lengthen
+            }
+
+            // Claim the id. The per-IP lock can't serialize a concurrent write of
+            // the same content from a *different* IP (same content → same id), so
+            // treat a duplicate-key violation as a dedup hit rather than a 500.
+            try {
+                $insert->execute([$candidate, $stored, $ipHash]);
+                $id = $candidate;
+                break;
+            } catch (PDOException $e) {
+                if (!is_duplicate_key_error($e)) {
+                    throw $e;
+                }
+                $check->execute([$candidate]);
+                $row = $check->fetch();
+                if ($row && $row['data'] === $stored) {
+                    $id = $candidate; // raced to the same content — dedup
+                    break;
+                }
+                // Raced to *different* content — lengthen the prefix and retry.
+            }
+        }
+    } finally {
+        // One release covering every exit (success, throw, exhaustion). The lock
+        // would also drop at connection close, but release it promptly so it
+        // isn't held during response rendering.
+        $rel = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+        $rel->execute([$lockName]);
+    }
+
+    if ($id === null) {
+        // The id is a deterministic function of the content, so retrying the same
+        // payload would hit the same exhausted prefix chain — a hard failure.
+        throw new ShareException(500, 'Could not generate a unique share ID');
+    }
+
+    return $id;
+}
+
+/**
+ * Retrieves the raw JSON data for a share ID, or null if not found.
+ */
+function get_share(PDO $pdo, string $id): ?string
+{
+    $stmt = $pdo->prepare('SELECT data FROM comparebuilds_shares WHERE id = ?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ? $row['data'] : null;
+}
+
+// When this file is included for unit testing (with SHARE_API_NO_MAIN defined),
+// stop here: everything above is pure and testable, everything below opens a DB
+// connection and handles the live request.
+if (defined('SHARE_API_NO_MAIN')) {
+    return;
+}
+
+// ─── DB connection ────────────────────────────────────────────────────────────
+require_once __DIR__ . '/../../config.php';
+
+try {
+    $pdo = get_db_connection();
 } catch (Throwable $e) {
     fail(500, 'Database unavailable');
 }
@@ -262,12 +498,8 @@ try {
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // ── GET ?id=xxxxxx ────────────────────────────────────────────────────────────
-// Read-only. The 56-billion-value ID space makes enumeration impractical, so GET
-// is not rate limited here (rely on the host/CDN for raw request flooding).
 if ($method === 'GET') {
     $id = $_GET['id'] ?? '';
-    // `page` mode (the /s/<id> rewrite) returns an HTML page for link unfurls;
-    // otherwise this is the SPA's JSON fetch.
     $pageMode = isset($_GET['page']);
 
     if (!is_string($id) || !valid_share_id($id)) {
@@ -279,9 +511,7 @@ if ($method === 'GET') {
     }
 
     try {
-        $stmt = $pdo->prepare('SELECT data FROM comparebuilds_shares WHERE id = ?');
-        $stmt->execute([$id]);
-        $row = $stmt->fetch();
+        $data = get_share($pdo, $id);
     } catch (Throwable $e) {
         if ($pageMode) {
             http_response_code(500);
@@ -290,7 +520,7 @@ if ($method === 'GET') {
         fail(500, 'Database error');
     }
 
-    if (!$row) {
+    if (!$data) {
         if ($pageMode) {
             http_response_code(404);
             render_share_page($id, null);
@@ -299,22 +529,21 @@ if ($method === 'GET') {
     }
 
     if ($pageMode) {
-        render_share_page($id, json_decode($row['data'], true) ?: null);
+        render_share_page($id, json_decode($data, true) ?: null);
     }
 
-    // Share payloads are immutable once written, so let browsers/CDNs cache the
-    // hit (overrides the global no-store, which only matters for POST). Capped at
-    // a day so a since-pruned link recovers to a 404 reasonably soon.
     header('Cache-Control: public, max-age=86400');
 
-    // Stored blob was validated on write — return it verbatim.
-    echo $row['data'];
+    // Validated-on-write JSON blob, returned verbatim as application/json with
+    // X-Content-Type-Options: nosniff — the browser won't render it as HTML, so
+    // this is not an XSS sink (the /s/<id> page mode above escapes via
+    // render_share_page; the SPA consumes this as data).
+    echo $data; // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
     exit;
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
 if ($method === 'POST') {
-    // Reject oversized bodies before reading them into memory.
     $declaredLen = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
     if ($declaredLen > MAX_BODY_BYTES) {
         fail(413, 'Payload too large');
@@ -338,90 +567,19 @@ if ($method === 'POST') {
 
     $ipHash = client_ip_hash();
 
-    // Serialize the rate-limit check and the insert per IP via an advisory lock
-    // so concurrent requests from one IP can't each read a below-limit count
-    // before any of them inserts (TOCTOU race that would let the per-IP cap be
-    // exceeded under a burst). MariaDB releases the lock automatically when this
-    // non-persistent connection closes at script end, which covers every
-    // fail()/exit path; the happy path also releases it explicitly once the row
-    // is written so it isn't held during response rendering.
-    $lockName = 'cb_share_' . substr($ipHash, 0, 48);
-
     try {
-        $lk = $pdo->prepare('SELECT GET_LOCK(?, 5)');
-        $lk->execute([$lockName]);
-        // GET_LOCK returns 1 on acquire, 0 on timeout, NULL on error. If we did
-        // not get the lock, fail closed rather than proceeding unlocked: a
-        // timeout means a concurrent burst from this same IP is already holding
-        // it, which is exactly the contention the lock exists to serialize, so
-        // running the rate-limit check + insert without it would reopen the
-        // TOCTOU race and let the per-IP cap be exceeded.
-        if ((int) $lk->fetchColumn() !== 1) {
-            header('Retry-After: 5');
-            fail(503, 'Server busy — please try again');
+        $id = store_share($pdo, $payload, $ipHash);
+    } catch (ShareException $e) {
+        // Client-visible failures carry their own status/message/Retry-After.
+        if ($e->retryAfter !== null) {
+            header('Retry-After: ' . $e->retryAfter);
         }
-
-        // ── Per-IP rate limit ────────────────────────────────────────────────
-        // Bound the window against the DB's own clock (NOW()) rather than a
-        // PHP-formatted timestamp, so a PHP/MySQL timezone mismatch or a DST
-        // transition can't shift the window and let an IP over- or under-shoot the
-        // cap. The window is a trusted integer constant, so it is safe to inline.
-        $rl = $pdo->prepare(
-            'SELECT COUNT(*) AS c FROM comparebuilds_shares '
-            . 'WHERE ip_hash = ? AND created_at > NOW() - INTERVAL ' . RATE_LIMIT_WINDOW . ' SECOND'
-        );
-        $rl->execute([$ipHash]);
-        if ((int) $rl->fetch()['c'] >= RATE_LIMIT_MAX) {
-            header('Retry-After: ' . RATE_LIMIT_WINDOW);
-            fail(429, 'Too many shares created — please try again later');
-        }
-
-        // ── Prune expired rows (best-effort) ─────────────────────────────────
-        // Same DB-clock comparison as the rate limit; the TTL is a trusted constant.
-        try {
-            $prune = $pdo->prepare(
-                'DELETE FROM comparebuilds_shares '
-                . 'WHERE created_at < NOW() - INTERVAL ' . (SHARE_TTL_DAYS * 86400) . ' SECOND'
-            );
-            $prune->execute();
-        } catch (Throwable $e) {
-            // Non-fatal — proceed even if cleanup fails.
-        }
-
-        // ── Generate a unique ID and insert ──────────────────────────────────
-        $stored = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        $check = $pdo->prepare('SELECT 1 FROM comparebuilds_shares WHERE id = ?');
-        $insert = $pdo->prepare('INSERT INTO comparebuilds_shares (id, data, ip_hash) VALUES (?, ?, ?)');
-        $max = strlen(ID_ALPHABET) - 1;
-        $id = null;
-
-        for ($attempt = 0; $attempt < 10; $attempt++) {
-            $candidate = '';
-            for ($j = 0; $j < ID_LEN; $j++) {
-                $candidate .= ID_ALPHABET[random_int(0, $max)];
-            }
-            $check->execute([$candidate]);
-            if (!$check->fetch()) {
-                $insert->execute([$candidate, $stored, $ipHash]);
-                $id = $candidate;
-                break;
-            }
-        }
-
-        $rel = $pdo->prepare('SELECT RELEASE_LOCK(?)');
-        $rel->execute([$lockName]);
+        fail($e->httpStatus, $e->getMessage());
     } catch (Throwable $e) {
+        // Anything else (DB/driver errors) stays generic — never leak details.
         fail(500, 'Database error');
     }
 
-    if ($id === null) {
-        fail(500, 'Could not generate a unique share ID — please retry');
-    }
-
-    // $id is a server-generated CSPRNG token ([A-Za-z0-9]{6}, see the loop above),
-    // not user input, and the response is application/json with X-Content-Type-
-    // Options: nosniff — so there is no XSS sink here.
     echo json_encode(['id' => $id]); // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
     exit;
 }

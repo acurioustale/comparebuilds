@@ -100,14 +100,17 @@ This location keeps the credentials inaccessible to the public even if PHP proce
 
 ### 4. Create the database table
 
-`share.php` runs `CREATE TABLE IF NOT EXISTS` on every request, so the table is created automatically on first use. You can also create it manually via your MariaDB/MySQL client (phpMyAdmin, CLI, or your host's database tool):
+`share.php` runs `CREATE TABLE IF NOT EXISTS` on the first share **creation** (the
+`POST` path), so the table is created automatically on first use. You can also
+create it manually via your MariaDB/MySQL client (phpMyAdmin, CLI, or your host's
+database tool):
 
 ```sql
 CREATE TABLE IF NOT EXISTS comparebuilds_shares (
-    id         CHAR(6)    NOT NULL PRIMARY KEY,
-    data       MEDIUMTEXT NOT NULL,
-    ip_hash    CHAR(64)   NULL,
-    created_at TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id         VARCHAR(32) NOT NULL PRIMARY KEY,
+    data       MEDIUMTEXT  NOT NULL,
+    ip_hash    CHAR(64)    NULL,
+    created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_created (created_at),
     INDEX idx_ip_created (ip_hash, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -128,10 +131,14 @@ In your hosting control panel, point the `comparebuilds.app` domain to the web r
 
 | Method | Parameters                                                                                                                                                                                                                                                                                                                     | Response                                                                                        |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names), `className`/`specName` (≤ 64 chars, used by the OG image), and `layoutHash` (≤ 16-char hex structural fingerprint of the class wire layout). | `{ id }` — 6-char alphanumeric                                                                  |
-| `GET`  | `?id=xxxxxx`                                                                                                                                                                                                                                                                                                                   | Stored JSON payload (includes `labels`/`className`/`specName`/`layoutHash` when they were sent) |
+| `POST` | JSON body `{ classId, specId, builds: ["…","…"] }` — 2–5 build strings, each ≤ 2000 chars. Optional: `labels` (array parallel to `builds`, each ≤ 40 chars — the per-slot names), `className`/`specName` (≤ 64 chars, used by the OG image), and `layoutHash` (≤ 16-char hex structural fingerprint of the class wire layout). | `{ id }` — 8–16 char alphanumeric, content-addressed (see below)                                |
+| `GET`  | `?id=<id>`                                                                                                                                                                                                                                                                                                                     | Stored JSON payload (includes `labels`/`className`/`specName`/`layoutHash` when they were sent) |
 
 Rows older than 90 days are deleted on each `POST` request.
+
+Ids are **content-addressed**: the id is a base62 prefix (8 chars, lengthened to
+at most 16 on a collision) of the SHA-256 of the canonicalised payload, so sharing
+the same build twice returns the same id instead of creating a duplicate row.
 
 ### Security & limits
 
@@ -146,20 +153,17 @@ Rows older than 90 days are deleted on each `POST` request.
   base64 build string ≤ 2000 chars; only the validated fields are stored (never the raw body).
 - **Same-origin only** — no CORS headers are sent, so other sites can't call the API from a browser.
 - **No error leakage** — DB/runtime errors return a generic JSON message; details are never exposed.
-- All queries use prepared statements; IDs use a CSPRNG (`random_int`).
+- All queries use prepared statements; ids are content-addressed (a base62 prefix of the payload's SHA-256), not user-controlled.
 
 ## Sharing
 
-Two ways to share builds:
+**Copy link** POSTs the builds to `api/share.php`, which returns a content-addressed
+id; the link is `…/s/<id>` (the SPA also opens a bare `…/#<id>` hash). It's
+persistent, short, backed by the DB, and unfurls with an Open Graph preview card.
+Opening a share link loads the builds on page load (a share in the URL takes
+precedence over locally saved state).
 
-- **Copy link** — POSTs the builds to `api/share.php`, which returns a 6-char id; the
-  link is `…/#xxxxxx` (or `…/s/xxxxxx`). Persistent, short, backed by the DB.
-- **Copy permalink** — encodes the builds straight into the URL hash
-  (`…/#b=<token>`, base64url of the build strings). No server call, no rate limit,
-  works offline; the trade-off is a long URL. Opening either kind loads the builds
-  on page load (a share in the URL takes precedence over locally saved state).
-
-Both link types embed a detect-only `layoutHash` stamp — a structural fingerprint of the talent tree at the time of sharing. If a game patch shifts talent positions or alters the tree structure, opening an older share link displays an honest warning banner explaining that talent positions may have shifted, rather than silently misparsing or rendering a corrupt build.
+The share embeds a detect-only `layoutHash` stamp — a structural fingerprint of the talent tree at the time of sharing. If a game patch shifts talent positions or alters the tree structure, opening an older share link displays an honest warning banner explaining that talent positions may have shifted, rather than silently misparsing or rendering a corrupt build.
 
 ## Local persistence
 
@@ -170,7 +174,7 @@ server, and isn't rate-limited. Only the small serialisable state is saved (the
 build strings, spec/class, and interactive selection); the decoded trees are
 rebuilt on load.
 
-A share id in the URL (`…/#xxxxxx`) takes precedence — opening a shared link loads
+A share id in the URL (`…/#<id>`) takes precedence — opening a shared link loads
 that build instead of your saved local state. One caveat: a build string typed
 into a slot but not yet submitted isn't saved, since it's only transient input.
 
