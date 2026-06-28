@@ -94,7 +94,11 @@ describe("comparison view", () => {
     paste(screen.getAllByPlaceholderText("Paste build string…")[0], a);
     await screen.findByPlaceholderText(/Build 1 — Blood Death Knight/);
     paste(screen.getByPlaceholderText("Paste build string…"), b);
-    expect(await screen.findByText(/Differences/)).toBeInTheDocument();
+    // Scope to the diff's heading <p>; the "Differences only" toggle button
+    // also contains the word "Differences".
+    expect(
+      await screen.findByText(/Differences/, { selector: "p" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -106,7 +110,11 @@ describe("share rehydration", () => {
 
     render(<App />);
 
-    expect(await screen.findByText(/Differences/)).toBeInTheDocument();
+    // Scope to the diff's heading <p>; the "Differences only" toggle button
+    // also contains the word "Differences".
+    expect(
+      await screen.findByText(/Differences/, { selector: "p" }),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     // hash is cleared so a manual reload doesn't re-trigger
     expect(window.location.hash).toBe("");
@@ -132,7 +140,11 @@ describe("share rehydration", () => {
       </StrictMode>,
     );
 
-    expect(await screen.findByText(/Differences/)).toBeInTheDocument();
+    // Scope to the diff's heading <p>; the "Differences only" toggle button
+    // also contains the word "Differences".
+    expect(
+      await screen.findByText(/Differences/, { selector: "p" }),
+    ).toBeInTheDocument();
     // The useRef guard prevents StrictMode's double effect invocation from
     // fetching (and adding the builds) twice.
     expect(fetchMock).toHaveBeenCalledTimes(1);

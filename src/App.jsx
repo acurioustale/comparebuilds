@@ -148,7 +148,7 @@ function ChangesFilterToggle({ value, onChange }) {
       }`}
       title="Dim nodes the builds share; show only where they differ"
     >
-      Changes only
+      Differences only
     </button>
   );
 }
@@ -255,8 +255,8 @@ function MainView() {
     [query, matchIds],
   );
 
-  // "Changes only" filter, applied to the diff (2 builds) and heatmap (3+). A view
-  // preference, so it stays in component state rather than the persisted store.
+  // "Differences only" filter, applied to the diff (2 builds) and heatmap (3+). A
+  // view preference, so it stays in component state rather than the persisted store.
   const [changesOnly, setChangesOnly] = useState(false);
   const [spotlightId, setSpotlightId] = useState(null);
 
