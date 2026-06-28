@@ -65,6 +65,27 @@ describe("matchNodeIds", () => {
     assert.strictEqual(matchNodeIds("nonexistent", NODES).size, 0);
   });
 
+  test("decodes HTML entities so apostrophes match", () => {
+    const nodes = [
+      { id: 7, name: "X", description: "reduces the attacker&#39;s speed" },
+    ];
+    assert.deepStrictEqual([...matchNodeIds("attacker's", nodes)], [7]);
+  });
+
+  test("strips HTML tags from descriptions", () => {
+    const nodes = [
+      { id: 8, name: "Y", description: "deals <b>Frost</b> damage" },
+    ];
+    assert.ok(matchNodeIds("frost damage", nodes).has(8));
+  });
+
+  test("matches apex per-rank descriptions", () => {
+    const nodes = [
+      { id: 9, name: "Apex", ranks: [{ description: "summons a phoenix" }] },
+    ];
+    assert.ok(matchNodeIds("phoenix", nodes).has(9));
+  });
+
   test("tolerates a missing/!array node list", () => {
     assert.strictEqual(matchNodeIds("x", null).size, 0);
   });
