@@ -136,9 +136,10 @@ function render_share_page(string $id, ?array $data): void
 function client_ip(): string
 {
     if (defined('TRUST_PROXY') && TRUST_PROXY && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $first = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-        if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
-            return $first;
+        $ips = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+        $realIp = end($ips);
+        if (filter_var($realIp, FILTER_VALIDATE_IP) !== false) {
+            return $realIp;
         }
     }
     return $_SERVER['REMOTE_ADDR'] ?? '';
