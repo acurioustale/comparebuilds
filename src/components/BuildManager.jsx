@@ -13,7 +13,7 @@ import { activeHeroSubtree, sectionPoints } from "../lib/spendRules";
 import { generateSimcProfileset } from "../lib/simcProfile";
 
 // Action-button label for a copy state. The share link has an async "Saving…"
-// busy state; the synchronous SimC copy passes busy === null and never hits it.
+// busy state; the synchronous simc copy passes busy === null and never hits it.
 function actionLabel(status, idle, busy) {
   if (status === "copying") return busy;
   if (status === "copied") return "Copied!";
@@ -639,7 +639,7 @@ export default function BuildManager() {
             className="wow-btn px-4 py-2 text-xs rounded select-none"
             style={{ color: actionColor(simcState) }}
           >
-            {actionLabel(simcState, "Copy SimC profileset", null)}
+            {actionLabel(simcState, "Copy simc profileset", null)}
           </button>
           <button
             type="button"

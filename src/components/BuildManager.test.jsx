@@ -120,7 +120,7 @@ describe("BuildManager import flow", () => {
 
     // Both actions are surfaced directly as buttons — no popover to open.
     expect(
-      await screen.findByRole("button", { name: /Copy SimC profileset/i }),
+      await screen.findByRole("button", { name: /Copy simc profileset/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Share link/i }),
