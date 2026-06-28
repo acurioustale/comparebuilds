@@ -358,3 +358,58 @@ describe("setInteractiveNodes", () => {
     );
   });
 });
+
+// ── Edit and replace build ────────────────────────────────────────────────────
+
+describe("editBuild and replaceBuild", () => {
+  test("editBuild enters addingBuild mode, sets editingIndex, and seeds interactiveNodes", async () => {
+    const [a] = genStrings("death_knight", "blood", 1);
+    await get().addBuild(a);
+    get().editBuild(0);
+    const st = get();
+    assert.strictEqual(st.addingBuild, true);
+    assert.strictEqual(st.editingIndex, 0);
+    assert.ok(
+      Object.keys(st.interactiveNodes).length > 0,
+      "interactiveNodes should be seeded",
+    );
+
+    // finishAddingBuild clears editingIndex
+    get().finishAddingBuild();
+    assert.strictEqual(get().addingBuild, false);
+    assert.strictEqual(get().editingIndex, null);
+  });
+
+  test("replaceBuild replaces the build string and preserves name", async () => {
+    const [a, b] = genStrings("death_knight", "blood", 2);
+    await get().addBuild(a);
+    get().setBuildName(0, "Original Name");
+
+    await get().replaceBuild(0, b);
+    const st = get();
+    assert.strictEqual(st.buildStrings[0], b);
+    assert.strictEqual(st.buildNames[0], "Original Name");
+    assert.ok(st.parsedBuilds[0], "new build should be parsed");
+  });
+
+  test("replaceBuild validation rejects invalid index, duplicates, and spec mismatches", async () => {
+    const [a, b] = genStrings("death_knight", "blood", 2);
+    const [mage] = genStrings("mage", "fire", 1);
+    await get().addBuild(a);
+    await get().addBuild(b);
+
+    // out of range index
+    await get().replaceBuild(99, b);
+    assert.strictEqual(get().buildStrings[0], a);
+
+    // duplicate of another slot
+    await get().replaceBuild(0, b);
+    assert.match(get().error ?? "", /already been added/);
+    assert.strictEqual(get().buildStrings[0], a);
+
+    // spec mismatch
+    await get().replaceBuild(0, mage);
+    assert.match(get().error ?? "", /Spec mismatch/);
+    assert.strictEqual(get().buildStrings[0], a);
+  });
+});

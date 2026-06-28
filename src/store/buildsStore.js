@@ -245,6 +245,11 @@ const EMPTY = {
    * MainView renders the interactive tree alongside the comparison view.
    */
   addingBuild: false,
+
+  /**
+   * Index of the build currently being edited in the interactive tree, or null.
+   */
+  editingIndex: null,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -492,7 +497,136 @@ const createStore = (set, get) => ({
   },
 
   /** Called after a successful interactive export to hide the interactive tree. */
-  finishAddingBuild: () => set({ addingBuild: false }),
+  finishAddingBuild: () => set({ addingBuild: false, editingIndex: null }),
+
+  /**
+   * Enter "edit build" mode for an existing build: seeds the interactive tree
+   * with the build's existing node selection (plus any granted seeds) and sets
+   * editingIndex.
+   * @param {number} index
+   */
+  editBuild: (index) => {
+    const { buildStrings, parsedBuilds, treeData } = get();
+    if (
+      index < 0 ||
+      index >= buildStrings.length ||
+      !treeData ||
+      !parsedBuilds[index]
+    )
+      return;
+    set({ addingBuild: true, editingIndex: index });
+    get().setInteractiveNodes({
+      ...buildGrantedSeed(treeData),
+      ...parsedBuilds[index].nodes,
+    });
+  },
+
+  /**
+   * Mirrors addBuildInternal's validation but replaces the build at `index`
+   * while preserving its existing slot name.
+   * @param {number} index
+   * @param {string} buildString
+   */
+  replaceBuild: async (index, buildString) => {
+    set({ error: null });
+
+    if (index < 0 || index >= get().buildStrings.length) return;
+
+    if (!buildString || typeof buildString !== "string") {
+      set({ error: "Build string must be a non-empty string." });
+      return;
+    }
+
+    if (buildString.length > MAX_BUILD_LEN) {
+      set({
+        error: `Build string is too long (max ${MAX_BUILD_LEN} characters).`,
+      });
+      return;
+    }
+
+    const {
+      buildStrings,
+      specId: currentSpecId,
+      classNodes,
+      isLoading,
+    } = get();
+
+    // Reject exact duplicates with other slots
+    if (buildStrings.some((s, i) => i !== index && s === buildString)) {
+      set({ error: "That build has already been added." });
+      return;
+    }
+
+    // ── Parse just the 24-bit header to identify the spec ────────────────────
+    let header;
+    try {
+      header = parseSpecId(buildString);
+    } catch (err) {
+      const isVersion =
+        err instanceof RangeError && /version/i.test(err.message);
+      set({
+        error: isVersion
+          ? `${err.message}. This build string is from a newer game format than this tool supports.`
+          : "Could not read the build string header — it may be truncated or corrupt.",
+      });
+      return;
+    }
+
+    const match = findClassForSpec(header.specId);
+    if (!match) {
+      set({
+        error:
+          `Spec ID ${header.specId} was not found in the local class index. ` +
+          `Try re-running the ingest script for the latest data.`,
+      });
+      return;
+    }
+
+    // ── Reject spec mismatches ────────────────────────────────────────────────
+    if (currentSpecId !== null && header.specId !== currentSpecId) {
+      const existingMatch = findClassForSpec(currentSpecId);
+      const existingLabel = existingMatch
+        ? `${existingMatch.cls.displayName} — ${existingMatch.spec.displayName}`
+        : `spec ${currentSpecId}`;
+      const incomingLabel = `${match.cls.displayName} — ${match.spec.displayName}`;
+      set({
+        error:
+          `Spec mismatch: loaded builds are ${existingLabel}, ` +
+          `but this string is for ${incomingLabel}.`,
+      });
+      return;
+    }
+
+    // ── Replace the string at index ───────────────────────────────────────────
+    const newStrings = [...buildStrings];
+    newStrings[index] = buildString;
+    const newParsed = [...get().parsedBuilds];
+    newParsed[index] = null;
+
+    if (classNodes && !isLoading) {
+      set({
+        buildStrings: newStrings,
+        parsedBuilds: parseAll(newStrings, classNodes),
+      });
+    } else if (isLoading) {
+      set({
+        buildStrings: newStrings,
+        parsedBuilds: newParsed,
+      });
+    } else {
+      set({
+        buildStrings: newStrings,
+        parsedBuilds: newParsed,
+      });
+      await loadTreeData(
+        set,
+        get,
+        match.cls.name,
+        match.spec.name,
+        header.specId,
+      );
+    }
+  },
 
   /**
    * Renames the slot at `index`. Trimmed to MAX_BUILD_NAME_LEN; '' means unnamed.
@@ -616,6 +750,7 @@ export const useBuildsStore = create(
       classId: state.classId,
       interactiveNodes: state.interactiveNodes,
       addingBuild: state.addingBuild,
+      editingIndex: state.editingIndex,
     }),
     // Forward-compat hook: if the persisted shape ever changes, bump `version`
     // above and translate older payloads here. v1 is the initial shape, so this
