@@ -438,7 +438,7 @@ export default function InteractiveTalentTree({
                 ? "Copied!"
                 : copyState === "error"
                   ? "Failed"
-                  : "Copy string"}
+                  : "Copy"}
             </button>
             <ExportButton
               onClick={handleExport}
