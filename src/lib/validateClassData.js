@@ -306,8 +306,9 @@ export function validateClassData(data, indexEntry = null) {
 
 /**
  * Throws an Error listing every problem if `data` is invalid.
- * @param {object} data
- * @param {object} [indexEntry]
+ * @param {object} data Parsed src/data/{slug}.json
+ * @param {object} [indexEntry] Matching entry from classes.json
+ * @returns {void}
  */
 export function assertValidClassData(data, indexEntry = null) {
   const errors = validateClassData(data, indexEntry);

@@ -8,6 +8,7 @@
  * Maps an adoption count (how many builds picked a node) to a rarity tier.
  * @param {number} count  builds that selected the node
  * @param {number} total  total builds compared
+ * @returns {string} Rarity tier name
  */
 export function rarityTier(count, total) {
   if (count === 0) return "poor";
@@ -22,6 +23,7 @@ export function rarityTier(count, total) {
  * Whether a node is *contested* — picked by some builds but not all.
  * @param {number} count  builds that selected the node
  * @param {number} total  total builds compared
+ * @returns {boolean} True if the node is contested
  */
 export function isContested(count, total) {
   return count > 0 && count < total;
@@ -40,6 +42,7 @@ export function isContested(count, total) {
  * @param {number} count               builds that selected the node
  * @param {number} total               total builds compared
  * @param {(number|null)[]} choiceVotes per-build entryChosen (null = not picked)
+ * @returns {boolean} True if the node is divergent
  */
 export function isDivergent(count, total, choiceVotes = []) {
   if (isContested(count, total)) return true;
@@ -104,6 +107,8 @@ export function computeStats(builds, allNodes) {
 /**
  * Returns the tiers that actually appear for a given build count, with their
  * count ranges, for the legend.
+ * @param {number} n Total builds compared
+ * @returns {Array<{ tier: string, rangeLabel: string }>}
  */
 export function computeLegendTiers(n) {
   if (n === 0) return [];

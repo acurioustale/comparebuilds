@@ -25,6 +25,14 @@ import { useRef, useState, useLayoutEffect } from "react";
  * The full-width container's `clientWidth` is the true available width; with
  * `scrollbar-gutter: stable` on <html> it doesn't jump when a tall layout summons
  * the scrollbar, so the layout decision is free of scrollbar hysteresis.
+ *
+ * @param {object} props
+ * @param {{ row: number, stacked: number }|null} [props.widths=null] Computed natural widths
+ * @param {number} [props.minScale=0.45] Minimum scale before scrolling
+ * @param {number} [props.floorScale=0.62] Minimum row scale before reflowing to stacked
+ * @param {string} [props.className=""] Additional CSS classes
+ * @param {import("react").ReactNode | function} props.children Child element or render function
+ * @returns {import("react").JSX.Element}
  */
 export default function FitToWidth({
   widths = null,

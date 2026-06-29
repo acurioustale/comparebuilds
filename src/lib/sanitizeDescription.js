@@ -43,6 +43,10 @@ const ESCAPE = {
   "'": "&#39;",
 };
 
+/**
+ * @param {string} text Raw text string
+ * @returns {string} Escaped HTML string
+ */
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (c) => ESCAPE[c]);
 }
@@ -50,6 +54,10 @@ function escapeHtml(text) {
 // Only `color` and `font-weight` declarations survive, and only with a value
 // drawn from a safe character set (named colours, #hex, rgb()/hsl(), numbers,
 // keywords). url(), expression() and javascript: can never pass.
+/**
+ * @param {string} style CSS style string
+ * @returns {string} Sanitised CSS style string
+ */
 function sanitizeStyle(style) {
   const decls = [];
   for (const part of style.split(";")) {
@@ -67,6 +75,10 @@ function sanitizeStyle(style) {
 
 // Returns a canonical safe tag if `tag` matches the allowlist exactly, otherwise
 // the tag escaped into inert text.
+/**
+ * @param {string} tag Raw HTML tag string
+ * @returns {string} Sanitised HTML tag or escaped text
+ */
 function sanitizeTag(tag) {
   const t = tag.trim();
   if (/^<br\s*\/?>$/i.test(t)) return "<br />";

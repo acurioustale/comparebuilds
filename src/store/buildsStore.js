@@ -39,6 +39,15 @@ let addBuildQueue = Promise.resolve();
 // value when queued and bails if it changed while it waited.
 let slotGen = 0;
 
+/**
+ * @param {function} set Zustand set function
+ * @param {function} get Zustand get function
+ * @param {string} classSlug Class slug name
+ * @param {string} specSlug Spec slug name
+ * @param {number} specId Spec ID
+ * @param {{ preserveInteractive?: boolean }} [options] Options object
+ * @returns {Promise<void>}
+ */
 async function loadTreeData(
   set,
   get,
@@ -187,6 +196,10 @@ const EMPTY = {
 const createStore = (set, get) => ({
   ...EMPTY,
 
+  /**
+   * @param {string|null} hash Layout hash string or null
+   * @returns {void}
+   */
   setSharedLayoutHash: (hash) => set({ sharedLayoutHash: hash ?? null }),
 
   /**
@@ -204,6 +217,7 @@ const createStore = (set, get) => ({
    * (and only this call) has finished committing.
    *
    * @param {string} buildString
+   * @returns {Promise<boolean>} Resolves true on success, false on failure
    */
   addBuild: (buildString) => {
     const run = addBuildQueue.then(() => get().addBuildInternal(buildString));
@@ -212,7 +226,11 @@ const createStore = (set, get) => ({
     return run;
   },
 
-  /** @internal The real addBuild body; always invoked via the serialised addBuild. */
+  /**
+   * @internal The real addBuild body; always invoked via the serialised addBuild.
+   * @param {string} buildString
+   * @returns {Promise<boolean>}
+   */
   addBuildInternal: async (buildString) => {
     // Clear stale error at the start of each attempt
     set({ error: null });
@@ -363,6 +381,7 @@ const createStore = (set, get) => ({
    * is removed so the next addBuild() can start fresh with a different spec.
    *
    * @param {number} index
+   * @returns {void}
    */
   removeBuild: (index) => {
     const { buildStrings, parsedBuilds, buildNames } = get();
@@ -391,6 +410,7 @@ const createStore = (set, get) => ({
 
   /**
    * Removes all builds and resets every piece of state to its initial value.
+   * @returns {void}
    */
   clearAllBuilds: () => {
     loadGen++; // cancel any in-flight load
@@ -405,6 +425,7 @@ const createStore = (set, get) => ({
    * stays unlocked.
    *
    * @param {number} specId
+   * @returns {Promise<void>}
    */
   preloadSpec: async (specId) => {
     if (get().buildStrings.length > 0) return;
@@ -426,6 +447,7 @@ const createStore = (set, get) => ({
    * InteractiveTalentTree on every click.
    *
    * @param {Record<number, {pointsInvested: number, entryChosen: number|null}>} nodes
+   * @returns {void}
    */
   setInteractiveNodes: (nodes) => {
     const { treeData } = get();
@@ -435,6 +457,7 @@ const createStore = (set, get) => ({
   /**
    * Enter "add another build" mode: clears the interactive node selection back
    * to the granted seed and shows the interactive tree alongside the comparison.
+   * @returns {void}
    */
   startAddingBuild: () => {
     const { treeData } = get();
@@ -442,12 +465,16 @@ const createStore = (set, get) => ({
     set({ addingBuild: true, interactiveNodes: buildGrantedSeed(treeData) });
   },
 
-  /** Called after a successful interactive export to hide the interactive tree. */
+  /**
+   * Called after a successful interactive export to hide the interactive tree.
+   * @returns {void}
+   */
   finishAddingBuild: () => set({ addingBuild: false, editingIndex: null }),
 
   /**
    * Opens the build at `index` in the interactive calculator, seeded with its selections.
    * @param {number} index
+   * @returns {void}
    */
   editBuild: (index) => {
     const { treeData, parsedBuilds } = get();
@@ -469,6 +496,7 @@ const createStore = (set, get) => ({
    * Replaces the build string at `index` with `buildString`, re-parses, and preserves its name.
    * @param {number} index
    * @param {string} buildString
+   * @returns {Promise<boolean>}
    */
   replaceBuild: (index, buildString) => {
     const gen = slotGen;
@@ -483,6 +511,11 @@ const createStore = (set, get) => ({
     return run;
   },
 
+  /**
+   * @param {number} index
+   * @param {string} buildString
+   * @returns {Promise<boolean>}
+   */
   replaceBuildInternal: async (index, buildString) => {
     set({ error: null });
 
@@ -569,6 +602,7 @@ const createStore = (set, get) => ({
    * Renames the slot at `index`. Trimmed to MAX_BUILD_NAME_LEN; '' means unnamed.
    * @param {number} index
    * @param {string} name
+   * @returns {void}
    */
   setBuildName: (index, name) => {
     const { buildStrings, buildNames } = get();
@@ -582,6 +616,7 @@ const createStore = (set, get) => ({
    * Replaces all slot names at once (used when applying a shared build's
    * labels). Normalised to the current buildStrings length.
    * @param {string[]} names
+   * @returns {void}
    */
   setBuildNames: (names) => {
     const { buildStrings } = get();
@@ -600,6 +635,7 @@ const createStore = (set, get) => ({
    * class tree, and re-parses any restored build strings. The in-progress
    * interactive selection is preserved (preserveInteractive) rather than reset
    * to the granted seed. No-op when nothing was restored.
+   * @returns {Promise<void>}
    */
   rehydrateTreeData: async () => {
     const { specId } = get();
@@ -665,6 +701,20 @@ export const useBuildsStore = create(
     storage: createJSONStorage(() => {
       if (typeof localStorage === "undefined" || !localStorage) {
         throw new Error("localStorage unavailable");
+      }
+      const testKey = "__comparebuilds_test__";
+      try {
+        localStorage.setItem(testKey, "test");
+      } catch (err) {
+        throw new Error("localStorage unavailable or quota exceeded", {
+          cause: err,
+        });
+      } finally {
+        try {
+          localStorage.removeItem(testKey);
+        } catch {
+          // Ignore cleanup errors if storage is completely unwriteable
+        }
       }
       return {
         getItem: (name) => localStorage.getItem(name),

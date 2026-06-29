@@ -17,6 +17,9 @@ const CLASS_MODULES = import.meta.glob([
  * If `nodes` contains selections from more than one hero subtree, strips all
  * but the dominant one (highest total points invested).  Returns `nodes`
  * unchanged when there is zero or one active subtree.
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} nodes
+ * @param {object|null} treeData
+ * @returns {Record<number, { pointsInvested: number, entryChosen: number|null }>}
  */
 export function sanitizeHeroSubtrees(nodes, treeData) {
   if (!treeData) return nodes;

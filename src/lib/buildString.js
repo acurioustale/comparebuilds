@@ -141,6 +141,10 @@ export function collectClassNodes(classData) {
 // parses against the same classNodes (parseAll, re-parse on add/replace) reuse
 // the work instead of rebuilding it each call.
 const nodeIndexCache = new WeakMap();
+/**
+ * @param {Array<{ id: number, maxRanks?: number, choices?: Array<{maxRanks:number}>|null }>} nodes
+ * @returns {{ sorted: Array<{ id: number, maxRanks?: number, choices?: Array<{maxRanks:number}>|null }>, nodeById: Map<number, any> }}
+ */
 function nodeIndex(nodes) {
   let idx = nodeIndexCache.get(nodes);
   if (!idx) {

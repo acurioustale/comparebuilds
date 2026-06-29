@@ -3,6 +3,10 @@ import { computeDiff } from "../lib/diff";
 import { computeStats, isContested, isDivergent } from "../lib/heatmap";
 
 // Display name for a node: its own name, or a choice node's options joined.
+/**
+ * @param {object} node Spec node object
+ * @returns {string} Display name
+ */
 function nodeName(node) {
   return (
     node.name ||
@@ -13,6 +17,11 @@ function nodeName(node) {
 }
 
 // Concise per-build cell value: chosen option, rank fraction, or a not-taken dash.
+/**
+ * @param {object} node Spec node object
+ * @param {{ pointsInvested: number, entryChosen: number|null }|null} sel Selection object
+ * @returns {string} Cell display value
+ */
 function cellValue(node, sel) {
   if (!sel) return "—";
   if (node.type === "choice") {
@@ -29,6 +38,12 @@ function cellValue(node, sel) {
  *     nodes every build takes but where the picks diverge (a case the old inline
  *     count-based check missed).
  * Hovering a row spotlights that node in the tree via SpotlightContext.
+ *
+ * @param {object} props
+ * @param {object} props.treeData Spec tree data object
+ * @param {Array<{ parsed: object, label: string }>} props.valid Array of valid builds
+ * @param {function} props.setSpotlightId Spotlight setter callback
+ * @returns {import("react").JSX.Element|null}
  */
 export default function DiffSummaryTable({ treeData, valid, setSpotlightId }) {
   const isDiffMode = valid?.length === 2;

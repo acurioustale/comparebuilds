@@ -3,13 +3,13 @@ import { activeHeroSubtree } from "./spendRules.js";
 /**
  * Generates a SimulationCraft profileset block for the active comparison slots.
  *
- * @param {string[]} buildStrings
- * @param {string[]} buildNames
- * @param {string} classDisplayName
- * @param {string} specDisplayName
- * @param {object} treeData
- * @param {object[]} parsedBuilds
- * @returns {string}
+ * @param {string[]} buildStrings Array of base64 build strings
+ * @param {string[]} buildNames Array of custom build names
+ * @param {string} classDisplayName Display name of the class
+ * @param {string} specDisplayName Display name of the spec
+ * @param {object} treeData Spec tree data definition
+ * @param {object[]} parsedBuilds Array of parsed build objects
+ * @returns {string} SimulationCraft profileset block
  */
 export function generateSimcProfileset(
   buildStrings,

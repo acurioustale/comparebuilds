@@ -19,6 +19,11 @@ export { activeHeroSubtree };
 
 /**
  * Total points spent in a tree section (class/spec/hero), excluding granted nodes.
+ *
+ * @param {string} treeType Tree section ('class'|'spec'|'hero')
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @returns {number} Total points spent in section
  */
 export function sectionPoints(treeType, allNodes, selected) {
   return spentPoints(allNodes, selected, treeType);
@@ -50,6 +55,11 @@ export function sectionPoints(treeType, allNodes, selected) {
  * form (see cellKey) instead of an over-budget multi-id string. (The ingest now
  * collapses every co-located cell in the data to one id; this is belt-and-braces
  * for a selection that still carries a duplicate.)
+ *
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @param {string|null} activeSubtree Currently active hero subtree name
+ * @returns {Record<number, { pointsInvested: number, entryChosen: number|null }>} Pruned selection map
  */
 export function prunedExportSelection(allNodes, selected, activeSubtree) {
   const realIds = new Set(allNodes.map((n) => n.id));
@@ -96,12 +106,12 @@ export function prunedExportSelection(allNodes, selected, activeSubtree) {
  * hero-subtree exclusivity, the section point budget, the node's gate threshold,
  * and its upper prerequisite.
  *
- * @param {object} node
- * @param {object[]} allNodes
- * @param {object} selected   selection map (incl. granted seed)
- * @param {object} nodeById   id → node
- * @param {{class:number, spec:number, hero:number}} budget
- * @returns {boolean}
+ * @param {object} node Target node definition
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected selection map (incl. granted seed)
+ * @param {Record<number, object>} nodeById id → node definition
+ * @param {{class:number, spec:number, hero:number}} budget Point budget per section
+ * @returns {boolean} True if a point can be spent on node
  */
 export function canSpendPoint(node, allNodes, selected, nodeById, budget) {
   if (node.alreadyGranted) return false;

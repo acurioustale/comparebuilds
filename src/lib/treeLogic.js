@@ -4,6 +4,10 @@
  * Directly connected parents sitting above `node` (posY less than node's). These
  * are its prerequisite candidates — satisfying any one of them unlocks the node.
  * Shared by hasUpperPrereq and computeInvalidNodeIds so the two never drift.
+ *
+ * @param {object} node Target node
+ * @param {Record<number, object>} nodeById Map of id → node definition
+ * @returns {object[]} Array of upper parent nodes
  */
 export function upperParents(node, nodeById) {
   return node.connections
@@ -15,6 +19,11 @@ export function upperParents(node, nodeById) {
  * Returns true if at least one directly connected upper parent (posY < node.posY)
  * is fully selected. alreadyGranted parents are treated as permanently satisfied.
  * Nodes with no upper connections (root nodes) always pass.
+ *
+ * @param {object} node Target node
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @param {Record<number, object>} nodeById Map of id → node definition
+ * @returns {boolean} True if upper prerequisites are met
  */
 export function hasUpperPrereq(node, selected, nodeById) {
   const upper = upperParents(node, nodeById);
@@ -39,6 +48,12 @@ export function hasUpperPrereq(node, selected, nodeById) {
  *
  * Single shared accumulator behind both the section-budget check (sectionPoints)
  * and the gate check (gatedPoints) so the two can't drift.
+ *
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @param {string} treeType Tree section ('class'|'spec'|'hero')
+ * @param {string|null} [heroSubtree=null] Hero subtree name if filtering by subtree
+ * @returns {number} Total points invested
  */
 export function spentPoints(allNodes, selected, treeType, heroSubtree = null) {
   let total = 0;
@@ -68,6 +83,11 @@ export function spentPoints(allNodes, selected, treeType, heroSubtree = null) {
  * Used for spentRequired gate checks. Delegates to spentPoints so the gate and
  * section-budget totals share one accumulator (including the co-located-cell
  * collapse) and can't drift.
+ *
+ * @param {object} node Target node
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @returns {number} Points spent in node's section/subtree
  */
 export function gatedPoints(node, allNodes, selected) {
   const heroSubtree = node.treeType === "hero" ? node.heroSubtree : null;
@@ -91,6 +111,9 @@ export function gatedPoints(node, allNodes, selected) {
  * for a tool-built string that still sets a since-collapsed duplicate's bit.
  * (Co-located *granted* roots — Halo-style pairs that are auto-granted together —
  * are exempt; they are never purchased.)
+ *
+ * @param {object} node Target node
+ * @returns {string} Cell key string
  */
 export function cellKey(node) {
   return `${node.treeType}|${node.heroSubtree ?? ""}|${node.posX},${node.posY}`;
@@ -101,6 +124,10 @@ export function cellKey(node) {
  * non-granted hero node in node order — or null if none yet. The single source
  * of "which subtree is active", shared by the spend rules and the validity
  * cascade so the interactive and import views agree.
+ *
+ * @param {object[]} allNodes Full spec node list from treeData.nodes
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Current selection state
+ * @returns {string|null} Active hero subtree name, or null
  */
 export function activeHeroSubtree(allNodes, selected) {
   for (const n of allNodes) {
@@ -148,9 +175,9 @@ export function buildGrantedSeed(treeData) {
  * alreadyGranted nodes are never flagged; they are permanently valid.
  *
  * @param {object[]} allNodes  treeData.nodes
- * @param {object}   selected  interactiveNodes map, including any granted-seed entries
- * @param {object}   nodeById  Map of id → node
- * @returns {Set<number>}
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected interactiveNodes map, including any granted-seed entries
+ * @param {Record<number, object>} nodeById Map of id → node
+ * @returns {Set<number>} Set of invalid node IDs
  */
 export function computeInvalidNodeIds(allNodes, selected, nodeById) {
   const invalid = new Set();

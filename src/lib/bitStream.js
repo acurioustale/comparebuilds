@@ -25,6 +25,10 @@ export class BitReader {
     this.#str = buildString.replace(PADDING_RE, "");
   }
 
+  /**
+   * Reads a single bit from the stream.
+   * @returns {number} 0 or 1
+   */
   readBit() {
     const charIdx = (this.#pos / 6) | 0;
     if (charIdx >= this.#str.length) {
@@ -42,7 +46,11 @@ export class BitReader {
     return bit;
   }
 
-  /** Read `count` bits, assembled LSB-first into an unsigned integer. */
+  /**
+   * Read `count` bits, assembled LSB-first into an unsigned integer.
+   * @param {number} count Number of bits to read
+   * @returns {number} Unsigned integer value
+   */
   readBits(count) {
     let result = 0;
     for (let i = 0; i < count; i++) {
@@ -51,7 +59,11 @@ export class BitReader {
     return result;
   }
 
-  /** Advance position by `count` bits (validates bounds lazily on next readBit). */
+  /**
+   * Advance position by `count` bits (validates bounds lazily on next readBit).
+   * @param {number} count Number of bits to skip
+   * @returns {void}
+   */
   skipBits(count) {
     this.#pos += count;
   }
@@ -62,6 +74,11 @@ export class BitReader {
 export class BitWriter {
   #bits = [];
 
+  /**
+   * Writes a single bit to the stream.
+   * @param {number} bit 0 or 1
+   * @returns {void}
+   */
   writeBit(bit) {
     this.#bits.push(bit & 1);
   }
@@ -69,10 +86,20 @@ export class BitWriter {
   // NOTE: only safe for count <= 31 with non-zero values — JS masks shift amounts
   // to 5 bits, so (value >> i) is wrong for i >= 32. All real fields here are <= 16
   // bits; the only wide write is the 128-bit hash, which is always 0.
+  /**
+   * Writes `count` bits of `value` to the stream.
+   * @param {number} value Integer value to write
+   * @param {number} count Number of bits to write
+   * @returns {void}
+   */
   writeBits(value, count) {
     for (let i = 0; i < count; i++) this.#bits.push((value >> i) & 1);
   }
 
+  /**
+   * Converts the written bitstream to a base64 string.
+   * @returns {string} Base64 build string
+   */
   toString() {
     const bits = [...this.#bits];
     while (bits.length % 6 !== 0) bits.push(0);
