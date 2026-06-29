@@ -27,6 +27,10 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const isStr = (v) => typeof v === "string" && v.length > 0;
 const isBool = (v) => typeof v === "boolean";
 const isArr = (v) => Array.isArray(v);
+// Node/choice icons are interpolated into a same-origin URL path by iconUrl.js
+// (`/talent-icons/${icon}.jpg`). Constrain them to the Blizzard slug charset so
+// a stray "/" or ".." in a hand-edited row can't escape the icons directory.
+const isIconName = (v) => isStr(v) && /^[a-z0-9_]+$/i.test(v);
 
 /**
  * Validates a single normalised class-data object.
@@ -192,8 +196,8 @@ export function validateClassData(data, indexEntry = null) {
           n.choices.forEach((ch, ci) => {
             if (!isStr(ch?.name))
               nAt(`choices[${ci}].name must be a non-empty string`);
-            if (!isStr(ch?.icon))
-              nAt(`choices[${ci}].icon must be a non-empty string`);
+            if (!isIconName(ch?.icon))
+              nAt(`choices[${ci}].icon must be an icon slug ([A-Za-z0-9_])`);
             if (!isInt(ch?.maxRanks) || ch.maxRanks < 1)
               nAt(`choices[${ci}].maxRanks must be a positive integer`);
           });
@@ -224,7 +228,8 @@ export function validateClassData(data, indexEntry = null) {
       } else {
         // round / square
         if (!isStr(n.name)) nAt("must have a name");
-        if (!isStr(n.icon)) nAt("must have an icon");
+        if (!isIconName(n.icon))
+          nAt("icon must be an icon slug ([A-Za-z0-9_])");
         if (n.choices != null) nAt("non-choice node must have choices = null");
       }
 

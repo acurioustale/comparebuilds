@@ -373,6 +373,14 @@ describe("node-level fields", () => {
       "non-choice node must have choices = null",
     ));
 
+  test("round node with a path-traversal icon", () =>
+    assertHasError(
+      breakNode((nodes) => {
+        nodes[0].icon = "../../../etc/passwd";
+      }),
+      "icon must be an icon slug ([A-Za-z0-9_])",
+    ));
+
   test("choice node without choices array", () =>
     assertHasError(
       breakNode((nodes) => {
