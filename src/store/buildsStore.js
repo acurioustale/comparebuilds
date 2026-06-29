@@ -18,26 +18,7 @@ export const MAX_BUILD_LEN = 2000;
 // Per-slot name cap. Mirrored server-side in api/share.php (MAX_LABEL_LEN).
 export const MAX_BUILD_NAME_LEN = 40;
 
-// ─── Async tree-data loader (module-level to cancel stale loads) ──────────────
-
-// Incremented every time a new load starts. The load callback checks this
-// before committing results so a clearAllBuilds() or rapid spec-switch
-// never applies stale data.
-let loadGen = 0;
-
-// Serialises addBuild() calls. addBuild reads buildStrings, then commits across
-// an await (the first build's dynamic import); two calls dispatched before the
-// first commits would both see an empty list, both take the isFirst branch, and
-// clobber each other's array write and specId. Chaining each call after the
-// previous one keeps that read-modify-write atomic.
-let addBuildQueue = Promise.resolve();
-
-// Bumped by structural edits (removeBuild / clearAllBuilds) that reindex the
-// slot arrays. removeBuild and clearAllBuilds run synchronously, OUTSIDE
-// addBuildQueue, so a replaceBuild deferred behind the queue could otherwise
-// run after a reindex and overwrite the wrong slot. replaceBuild captures this
-// value when queued and bails if it changed while it waited.
-let slotGen = 0;
+// ─── Async tree-data loader ───────────────────────────────────────────────────
 
 /**
  * @param {function} set Zustand set function
@@ -56,14 +37,14 @@ async function loadTreeData(
   specId,
   { preserveInteractive = false } = {},
 ) {
-  const gen = ++loadGen;
-  set({ isLoading: true, error: null });
+  const gen = get().loadGen + 1;
+  set({ isLoading: true, error: null, loadGen: gen });
 
   try {
     const classData = await importClassData(classSlug);
 
     // Bail if the store was reset or re-targeted while we were awaiting
-    if (loadGen !== gen) return;
+    if (get().loadGen !== gen) return;
 
     const classNodes = collectClassNodes(classData);
     const treeData = classData.specs[specSlug];
@@ -97,7 +78,7 @@ async function loadTreeData(
         }),
     });
   } catch (err) {
-    if (loadGen !== gen) return;
+    if (get().loadGen !== gen) return;
     console.error(`Failed to load tree data: ${err.message}`, err);
     const message = `Failed to load tree data: ${err.message}`;
     // An interactive preload (no build strings) optimistically set specId
@@ -195,6 +176,9 @@ const EMPTY = {
 
 const createStore = (set, get) => ({
   ...EMPTY,
+  loadGen: 0,
+  addBuildQueue: Promise.resolve(),
+  slotGen: 0,
 
   /**
    * @param {string|null} hash Layout hash string or null
@@ -220,9 +204,10 @@ const createStore = (set, get) => ({
    * @returns {Promise<boolean>} Resolves true on success, false on failure
    */
   addBuild: (buildString) => {
-    const run = addBuildQueue.then(() => get().addBuildInternal(buildString));
+    const queue = get().addBuildQueue;
+    const run = queue.then(() => get().addBuildInternal(buildString));
     // Keep the queue alive even if this call rejects, so later calls still run.
-    addBuildQueue = run.catch(() => {});
+    set({ addBuildQueue: run.catch(() => {}) });
     return run;
   },
 
@@ -389,7 +374,8 @@ const createStore = (set, get) => ({
 
     // Reindexing the slots invalidates any positional index captured by a
     // replaceBuild still waiting in addBuildQueue.
-    slotGen++;
+    const nextSlotGen = get().slotGen + 1;
+    set({ slotGen: nextSlotGen });
 
     const newStrings = buildStrings.filter((_, i) => i !== index);
     const newParsed = parsedBuilds.filter((_, i) => i !== index);
@@ -397,8 +383,7 @@ const createStore = (set, get) => ({
 
     if (newStrings.length === 0) {
       // Invalidate any in-flight load so its commit is a no-op
-      loadGen++;
-      set({ ...EMPTY });
+      set({ ...EMPTY, loadGen: get().loadGen + 1 });
     } else {
       set({
         buildStrings: newStrings,
@@ -413,9 +398,8 @@ const createStore = (set, get) => ({
    * @returns {void}
    */
   clearAllBuilds: () => {
-    loadGen++; // cancel any in-flight load
-    slotGen++; // invalidate any queued replaceBuild's captured index
-    set({ ...EMPTY });
+    // cancel any in-flight load and invalidate any queued replaceBuild
+    set({ ...EMPTY, loadGen: get().loadGen + 1, slotGen: get().slotGen + 1 });
   },
 
   /**
@@ -499,15 +483,16 @@ const createStore = (set, get) => ({
    * @returns {Promise<boolean>}
    */
   replaceBuild: (index, buildString) => {
-    const gen = slotGen;
-    const run = addBuildQueue.then(() => {
+    const gen = get().slotGen;
+    const queue = get().addBuildQueue;
+    const run = queue.then(() => {
       // A structural edit (removeBuild / clearAllBuilds) reindexed the slots
       // after this replace was queued, so the captured index is stale — skip
       // rather than overwrite the wrong slot.
-      if (slotGen !== gen) return false;
+      if (get().slotGen !== gen) return false;
       return get().replaceBuildInternal(index, buildString);
     });
-    addBuildQueue = run.catch(() => {});
+    set({ addBuildQueue: run.catch(() => {}) });
     return run;
   },
 
@@ -646,8 +631,7 @@ const createStore = (set, get) => ({
     // data regen removed it). Don't strand the user on saved-but-unloadable
     // builds — clear back to a clean slate.
     if (!match) {
-      loadGen++;
-      set({ ...EMPTY });
+      set({ ...EMPTY, loadGen: get().loadGen + 1 });
       return;
     }
 
@@ -658,8 +642,7 @@ const createStore = (set, get) => ({
     // If the load failed, the restored build strings can never render — discard
     // the stale persisted state rather than leaving a tree-less dead end.
     if (!get().treeData) {
-      loadGen++;
-      set({ ...EMPTY });
+      set({ ...EMPTY, loadGen: get().loadGen + 1 });
       return;
     }
 
@@ -693,43 +676,48 @@ export const useBuildsStore = create(
     // wrapper around an undefined store. This keeps the Node test environment,
     // where `localStorage` is not a real Storage, from crashing on writes.
     //
-    // When it IS available, wrap writes: a real browser's localStorage can still
-    // throw at write time (quota exceeded, or Safari private mode), and that throw
-    // would otherwise surface inside a state update. Swallow it so persistence
-    // degrades to best-effort ("not saved this session") instead of breaking the
-    // app. Reads pass straight through — getItem does not throw in these modes.
+    // When localStorage is unavailable (Vitest, strict webviews, or Safari private
+    // mode), provide an in-memory fallback storage implementation so persistence
+    // degrades gracefully without dropping writes or throwing errors during active interaction.
     storage: createJSONStorage(() => {
+      const memStorage = new Map();
+      const fallbackStorage = {
+        getItem: (name) => memStorage.get(name) ?? null,
+        setItem: (name, value) => memStorage.set(name, value),
+        removeItem: (name) => memStorage.delete(name),
+      };
+
       if (typeof localStorage === "undefined" || !localStorage) {
-        throw new Error("localStorage unavailable");
+        return fallbackStorage;
       }
       const testKey = "__comparebuilds_test__";
       try {
         localStorage.setItem(testKey, "test");
-      } catch (err) {
-        throw new Error("localStorage unavailable or quota exceeded", {
-          cause: err,
-        });
-      } finally {
-        try {
-          localStorage.removeItem(testKey);
-        } catch {
-          // Ignore cleanup errors if storage is completely unwriteable
-        }
+        localStorage.removeItem(testKey);
+      } catch {
+        return fallbackStorage;
       }
       return {
-        getItem: (name) => localStorage.getItem(name),
+        getItem: (name) =>
+          memStorage.has(name)
+            ? memStorage.get(name)
+            : localStorage.getItem(name),
         setItem: (name, value) => {
           try {
             localStorage.setItem(name, value);
+            memStorage.delete(name);
           } catch (err) {
             console.error(
-              `[zustand persist middleware] Failed to save state to localStorage: ${err.message}`,
+              `[zustand persist middleware] Failed to save state to localStorage: ${err.message}. Falling back to in-memory storage.`,
               err,
             );
-            // Best-effort: a failed write must not break a state update.
+            memStorage.set(name, value);
           }
         },
-        removeItem: (name) => localStorage.removeItem(name),
+        removeItem: (name) => {
+          localStorage.removeItem(name);
+          memStorage.delete(name);
+        },
       };
     }),
     // Persist only the small, serialisable slices. treeData/classNodes/
