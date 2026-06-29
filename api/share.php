@@ -429,14 +429,16 @@ function store_share(PDO $pdo, array $payload, string $ipHash): string
         }
 
         // ── Prune expired rows (best-effort) ─────────────────────────────────
-        try {
-            $prune = $pdo->prepare(
-                'DELETE FROM comparebuilds_shares '
-                . 'WHERE created_at < NOW() - INTERVAL ' . (SHARE_TTL_DAYS * 86400) . ' SECOND'
-            );
-            $prune->execute();
-        } catch (Throwable $e) {
-            // Non-fatal — proceed even if cleanup fails.
+        if (random_int(1, 100) === 1) {
+            try {
+                $prune = $pdo->prepare(
+                    'DELETE FROM comparebuilds_shares '
+                    . 'WHERE created_at < NOW() - INTERVAL ' . (SHARE_TTL_DAYS * 86400) . ' SECOND'
+                );
+                $prune->execute();
+            } catch (Throwable $e) {
+                // Non-fatal — proceed even if cleanup fails.
+            }
         }
 
         // ── Content-addressing & deduplication ───────────────────────────────
