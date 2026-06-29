@@ -227,15 +227,8 @@ try {
         // lookup let probes for non-existent ids burn the per-IP budget and grow
         // the table; a 404 below releases the lock and bails without logging.
         if ($data) {
-            try {
-                $logReq = $pdo->prepare('INSERT INTO comparebuilds_og_requests (ip_hash) VALUES (?)');
-                $logReq->execute([$ipHash]);
-            } catch (PDOException $e) {
-                // Table might not exist; ensure schema and retry once.
-                ensure_share_schema($pdo);
-                $logReq = $pdo->prepare('INSERT INTO comparebuilds_og_requests (ip_hash) VALUES (?)');
-                $logReq->execute([$ipHash]);
-            }
+            $logReq = $pdo->prepare('INSERT INTO comparebuilds_og_requests (ip_hash) VALUES (?)');
+            $logReq->execute([$ipHash]);
         }
     } finally {
         $rel = $pdo->prepare('SELECT RELEASE_LOCK(?)');

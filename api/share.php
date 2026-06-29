@@ -365,9 +365,9 @@ function canonicalize_payload(array $payload): string
 
 /**
  * Opens a new PDO connection to the share database. Schema creation is a
- * separate step (ensure_share_schema) run only on the write path, so the
- * read-only endpoints — the GET fetch and the OG image — don't pay a DDL
- * round-trip on every request.
+ * separate step (ensure_share_schema) run during deployment/migration, so
+ * live endpoints don't pay a DDL round-trip or acquire metadata locks on
+ * every request.
  */
 function get_db_connection(): PDO
 {
@@ -439,18 +439,7 @@ function store_share(PDO $pdo, array $payload, string $ipHash): string
             'SELECT COUNT(*) AS c FROM comparebuilds_shares '
             . 'WHERE ip_hash = ? AND created_at > NOW() - INTERVAL ' . RATE_LIMIT_WINDOW . ' SECOND'
         );
-        try {
-            $rl->execute([$ipHash]);
-        } catch (PDOException $e) {
-            // SQLSTATE 42S02 / MySQL 1146: Table doesn't exist.
-            // Execute DDL schema creation exactly once on first use, then retry.
-            if (($e->errorInfo[0] ?? '') === '42S02' || ($e->errorInfo[1] ?? 0) === 1146) {
-                ensure_share_schema($pdo);
-                $rl->execute([$ipHash]);
-            } else {
-                throw $e;
-            }
-        }
+        $rl->execute([$ipHash]);
         if ((int) $rl->fetch()['c'] >= RATE_LIMIT_MAX) {
             throw new ShareException(429, 'Too many shares created — please try again later', RATE_LIMIT_WINDOW);
         }

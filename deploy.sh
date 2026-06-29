@@ -43,3 +43,8 @@ rsync -avz --delete "$@" \
 	--exclude 'deploy.sh' \
 	"$stage/" \
 	"${REMOTE}:${TARGET}"
+
+if [[ "$*" != *"--dry-run"* ]]; then
+	echo "Running schema migration..."
+	ssh "${REMOTE}" "php ${TARGET}api/cron/ensure_schema.php" || true
+fi
