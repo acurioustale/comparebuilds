@@ -15,10 +15,10 @@
 import { upperParents } from "./treeLogic.js";
 
 /**
- * @param {number} nodeId   the hovered node
- * @param {object[]} nodes  treeData.nodes (or a panel's subset)
- * @param {object} nodeById id → node map
- * @returns {Set<number>}
+ * @param {number} nodeId the hovered node ID
+ * @param {object[]} nodes treeData.nodes (or a panel's subset)
+ * @param {Record<number, object>} nodeById id → node map
+ * @returns {Set<number>} Set of relevant node IDs in prereq chain
  */
 export function prereqChain(nodeId, nodes, nodeById) {
   const ids = new Set();

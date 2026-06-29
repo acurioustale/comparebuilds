@@ -35,17 +35,21 @@ for (const cls of classesIndex) {
   }
 }
 
-/** Returns the specId for a "/<class>/<spec>" pathname, or null. */
+/**
+ * Returns the specId for a "/<class>/<spec>" pathname, or null.
+ * @param {string} pathname URL pathname
+ * @returns {number|null} Spec ID or null
+ */
 export function specIdForPath(pathname) {
   const key = (pathname || "").replace(TRIM_SLASHES_RE, "").toLowerCase();
   return SPEC_BY_PATH.has(key) ? SPEC_BY_PATH.get(key) : null;
 }
 
 /**
- * @param {{ hash?: string, pathname?: string }} [location]  Defaults to window.location.
+ * @param {{ hash?: string, pathname?: string }} [location] Defaults to window.location.
  * @returns {{ kind: 'server-share', id: string }
  *          | { kind: 'spec-page', specId: number }
- *          | { kind: 'local' }}
+ *          | { kind: 'local' }} Route resolution object
  */
 export function resolveRoute(
   location = typeof window !== "undefined"

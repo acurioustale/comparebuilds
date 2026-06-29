@@ -10,11 +10,11 @@ import {
  * inactive hero subtrees, injecting the hero gate selection, and collecting
  * granted node IDs before encoding.
  *
- * @param {object} treeData
- * @param {object} selected
- * @param {number} specId
- * @param {array} classNodes
- * @returns {string}
+ * @param {object} treeData Spec tree data definition
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} selected Interactive selection state
+ * @param {number} specId Active spec ID
+ * @param {Array<{ id: number, maxRanks: number, choices: Array<{maxRanks:number}>|null }>} classNodes Full class node list
+ * @returns {string} Base64 build string
  */
 export function buildExportString(treeData, selected, specId, classNodes) {
   if (!treeData || !specId || !classNodes) return "";

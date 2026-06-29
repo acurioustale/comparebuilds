@@ -9,15 +9,22 @@
 const BLANK =
   "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 
+/**
+ * @param {string} icon Icon slug name
+ * @returns {string} Same-origin icon URL path
+ */
 export const iconUrl = (icon) =>
   typeof icon === "string" && icon
     ? `/talent-icons/${icon.toLowerCase()}.jpg`
     : BLANK;
 
-// onError handler for icon <img>s: swap a failed load for the blank pixel so a
-// missing file (a handful of upstream slugs have no real art) degrades to a
-// clean empty slot instead of the browser's broken-image glyph. The guard stops
-// the swap from re-triggering once the src is already the blank.
+/**
+ * onError handler for icon <img>s: swap a failed load for the blank pixel so a
+ * missing file (a handful of upstream slugs have no real art) degrades to a
+ * clean empty slot instead of the browser's broken-image glyph. The guard stops
+ * the swap from re-triggering once the src is already the blank.
+ * @param {import("react").SyntheticEvent<HTMLImageElement, Event>} e Image error event
+ */
 export const onIconError = (e) => {
   if (e.currentTarget.src !== BLANK) e.currentTarget.src = BLANK;
 };

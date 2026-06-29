@@ -31,6 +31,10 @@ import { collectClassNodes } from "./buildString.js";
 // dependency-free so wireLayout() runs in the browser as well as in Node:
 // node:crypto isn't available client-side and crypto.subtle is async. Operates
 // on Latin-1/ASCII input, which the wire-layout signature always is.
+/**
+ * @param {string} ascii Input string in Latin-1/ASCII
+ * @returns {string} SHA-256 hex string
+ */
 function sha256Hex(ascii) {
   function rightRotate(value, amount) {
     return (value >>> amount) | (value << (32 - amount));

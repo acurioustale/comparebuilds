@@ -17,7 +17,12 @@ export const PAD = 24; // panel padding around the node grid
 // the responsive media query (interactive tree); 'row' / 'stacked' force the layout
 // when a coordinator (FitToWidth) drives it from the zoom scale.
 
-/** Section container: panels side by side ('row') or stacked. `justify` centres a row. */
+/**
+ * Section container: panels side by side ('row') or stacked. `justify` centres a row.
+ * @param {string|null} layout
+ * @param {boolean} [justify=false]
+ * @returns {string} Tailwind class string
+ */
 export function sectionRowClass(layout, justify = false) {
   if (layout == null) {
     return `flex flex-col items-center gap-5 2xl:flex-row 2xl:items-start ${justify ? "2xl:justify-center " : ""}2xl:gap-0`;
@@ -28,7 +33,12 @@ export function sectionRowClass(layout, justify = false) {
   return "flex flex-col items-center gap-5";
 }
 
-/** Inter-panel divider: shown only in row layout. `extra` adds layout-specific classes. */
+/**
+ * Inter-panel divider: shown only in row layout. `extra` adds layout-specific classes.
+ * @param {string|null} layout
+ * @param {string} [extra=""]
+ * @returns {string} Tailwind class string
+ */
 export function dividerClass(layout, extra = "") {
   if (layout == null)
     return `hidden 2xl:block self-stretch w-px bg-wow-dim mx-3 ${extra}`;
@@ -36,7 +46,11 @@ export function dividerClass(layout, extra = "") {
   return "hidden";
 }
 
-/** Builds an `{ id: node }` lookup map from a node array. */
+/**
+ * Builds an `{ id: node }` lookup map from a node array.
+ * @param {object[]} nodes
+ * @returns {Record<number, object>} Map of id → node
+ */
 export function byId(nodes) {
   const m = {};
   for (const n of nodes) m[n.id] = n;
@@ -47,6 +61,7 @@ export function byId(nodes) {
  * Splits a spec's nodes into the four rendered sections — class, spec, and the two
  * hero subtrees. Shared by TalentTree, HeatmapTree and SideBySideDiff so the three
  * renderers can't drift on how a node is bucketed.
+ * @param {object} treeData Spec tree data object
  * @returns {{ classNodes: object[], specNodes: object[], leftNodes: object[], rightNodes: object[] }}
  */
 export function splitSections(treeData) {
@@ -61,6 +76,7 @@ export function splitSections(treeData) {
 
 /**
  * Pixel bounds of a panel's node grid.
+ * @param {object[]} nodes Array of node objects
  * @returns {{ minX: number, minY: number, W: number, H: number }}
  */
 export function panelBounds(nodes) {
@@ -97,6 +113,7 @@ const CARD_CHROME = 34; // card p-4 (16 + 16) plus the .wow-panel 1px border, bo
  *   - `row`     — Class ∥ Spec and hero left ∥ right side by side.
  *   - `stacked` — every panel full width, one per row (≈ the widest single panel).
  *
+ * @param {object} treeData Spec tree data object
  * @returns {{ row: number, stacked: number }}
  */
 export function treeNaturalWidths(treeData) {
@@ -125,6 +142,7 @@ export function treeNaturalWidths(treeData) {
  *   - `stacked` — the two builds stacked per section (≈ one column's width; the hero
  *                 block stays left ∥ right within a column).
  *
+ * @param {object} treeData Spec tree data object
  * @returns {{ row: number, stacked: number }}
  */
 export function pairedNaturalWidths(treeData) {
@@ -150,7 +168,11 @@ export function pairedNaturalWidths(treeData) {
 /**
  * Deduplicated edge list for the panel, in pixel coordinates. Only edges whose
  * both endpoints are in this panel are returned; each undirected edge once.
- * @returns {Array<{x1,y1,x2,y2,fromId,toId}>}
+ * @param {object[]} nodes Array of node objects
+ * @param {Record<number, object>} nodeById Map of id → node object
+ * @param {number} minX Minimum X position
+ * @param {number} minY Minimum Y position
+ * @returns {Array<{x1:number, y1:number, x2:number, y2:number, fromId:number, toId:number}>}
  */
 export function panelEdges(nodes, nodeById, minX, minY) {
   const nodeIds = new Set(nodes.map((n) => n.id));

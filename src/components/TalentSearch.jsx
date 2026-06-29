@@ -2,6 +2,13 @@
 // rendered as a footer inside the tree panel (WoW-style, at the bottom of the
 // talent frame); the actual highlighting happens in TalentNode/HeatmapNode via
 // SearchContext.
+/**
+ * @param {object} props
+ * @param {string} props.value Current search query value
+ * @param {function(string): void} props.onChange Search change callback
+ * @param {number} props.matchCount Number of matching nodes
+ * @returns {import("react").JSX.Element}
+ */
 export default function TalentSearch({ value, onChange, matchCount }) {
   const active = value.trim().length > 0;
   return (

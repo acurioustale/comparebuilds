@@ -27,12 +27,20 @@ const NAMED_ENTITIES = {
 // Decode a numeric character reference, guarding against out-of-range values so
 // a malformed entity returns null (caller leaves the literal text) rather than
 // throwing from String.fromCodePoint.
+/**
+ * @param {number} n Numeric character code
+ * @returns {string|null} Decoded character or null
+ */
 function fromCodePoint(n) {
   return Number.isInteger(n) && n >= 0 && n <= 0x10ffff
     ? String.fromCodePoint(n)
     : null;
 }
 
+/**
+ * @param {string} s String containing HTML entities
+ * @returns {string} Decoded string
+ */
 function decodeEntities(s) {
   return s.replace(/&[a-z]+;|&#\d+;|&#x[0-9a-f]+;/gi, (m) => {
     const named = NAMED_ENTITIES[m.toLowerCase()];
@@ -46,6 +54,10 @@ function decodeEntities(s) {
 }
 
 // Strip tags, decode entities, collapse whitespace, lowercase.
+/**
+ * @param {string} text Raw text string
+ * @returns {string} Normalised string
+ */
 function normalise(text) {
   if (typeof text !== "string") return "";
   return decodeEntities(text.replace(/<[^>]*>/g, " "))
@@ -57,6 +69,10 @@ function normalise(text) {
 // node id → normalised searchable text, memoised by node-list identity.
 const indexCache = new WeakMap();
 
+/**
+ * @param {object[]} nodes Spec node list
+ * @returns {Map<number, string>} Map of node id → normalised searchable text
+ */
 function searchIndex(nodes) {
   const cached = indexCache.get(nodes);
   if (cached) return cached;
@@ -76,9 +92,9 @@ function searchIndex(nodes) {
 }
 
 /**
- * @param {string} query
- * @param {object[]} nodes  treeData.nodes
- * @returns {Set<number>}
+ * @param {string} query Search query
+ * @param {object[]} nodes treeData.nodes
+ * @returns {Set<number>} Set of matching node IDs
  */
 export function matchNodeIds(query, nodes) {
   const q = normalise(query);

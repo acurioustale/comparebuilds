@@ -23,6 +23,10 @@ export const THEME_COLORS = { dark: "#0d0d14", light: "#f3e7cb" };
 
 // A persisted value is honoured only if it's one of the three modes; anything
 // else (null, stale, tampered) means "no stored mode".
+/**
+ * @param {string|null} value Persisted mode string
+ * @returns {string|null} Normalised mode string or null
+ */
 export function normalizeStoredMode(value) {
   return value === "light" || value === "dark" || value === "auto"
     ? value
@@ -30,11 +34,20 @@ export function normalizeStoredMode(value) {
 }
 
 // The persisted mode, defaulting to "auto" when nothing valid is stored.
+/**
+ * @param {string|null} stored Persisted mode string
+ * @returns {string} Active mode string
+ */
 export function resolveMode(stored) {
   return normalizeStoredMode(stored) ?? "auto";
 }
 
 // The active theme: explicit light/dark modes win; "auto" follows the OS.
+/**
+ * @param {string} mode Resolved mode string ('auto'|'light'|'dark')
+ * @param {boolean} prefersLight User OS prefers light mode
+ * @returns {string} Active theme string ('light'|'dark')
+ */
 export function resolveTheme(mode, prefersLight) {
   if (mode === "light" || mode === "dark") return mode;
   return prefersLight ? "light" : "dark";
@@ -47,6 +60,11 @@ export function resolveTheme(mode, prefersLight) {
 // reads as intentional). Every other click then visibly flips light/dark, with
 // no dead first click. Recomputed from live `prefersLight` each call, so an OS
 // change between clicks is handled for free.
+/**
+ * @param {string} current Current mode string
+ * @param {boolean} prefersLight User OS prefers light mode
+ * @returns {string} Next mode string in cycle
+ */
 export function nextMode(current, prefersLight) {
   const order = prefersLight
     ? ["auto", "dark", "light"]

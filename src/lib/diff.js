@@ -6,6 +6,10 @@
 /**
  * Returns a human-readable label for what a build selected on a given node.
  * Used in the diff summary panel.
+ *
+ * @param {object} node Spec node definition from treeData.nodes
+ * @param {{ pointsInvested: number, entryChosen: number|null }|null} sel Selection entry
+ * @returns {string|null} Human-readable selection label
  */
 export function selectionLabel(node, sel) {
   if (!sel) return null;
@@ -26,8 +30,8 @@ export function selectionLabel(node, sel) {
 /**
  * Computes the diff between two parsed builds.
  *
- * @param {Record<number, {pointsInvested, entryChosen}>} nodesA
- * @param {Record<number, {pointsInvested, entryChosen}>} nodesB
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} nodesA
+ * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} nodesB
  * @param {object[]} allNodes  Full spec node list from treeData.nodes
  * @returns {{
  *   highlights: Record<number, 'a-only'|'b-only'|'diff'>,

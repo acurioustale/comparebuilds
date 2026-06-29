@@ -4,8 +4,8 @@
 
 /**
  * POSTs build data to the share API and returns the generated short-link ID.
- * @param {{ classId: number, specId: number, builds: string[], labels?: string[], className: string, specName: string, layoutHash?: string|null }} payload
- * @returns {Promise<{ id: string }>}
+ * @param {{ classId: number, specId: number, builds: string[], labels?: string[], className: string, specName: string, layoutHash?: string|null }} payload Share payload
+ * @returns {Promise<{ id: string }>} Resolves with short-link ID
  */
 export async function createServerShare({
   classId,

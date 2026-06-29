@@ -34,6 +34,11 @@ const ARROW_H = 6;
 
 // Run an existing handler and ours back to back, so the child keeps its own
 // onTouch* behaviour when "hold" mode layers a peek gesture on top.
+/**
+ * @param {function|null} a First event handler
+ * @param {function|null} b Second event handler
+ * @returns {function} Composed event handler
+ */
 function compose(a, b) {
   if (!a) return b;
   if (!b) return a;
@@ -43,6 +48,16 @@ function compose(a, b) {
   };
 }
 
+/**
+ * @param {object} props
+ * @param {import("react").ReactNode} props.content Tooltip content
+ * @param {function} [props.renderContent] Optional render function for content
+ * @param {string} [props.placement="top"] Tooltip placement
+ * @param {number} [props.delay=0] Hover delay in ms
+ * @param {string} [props.touch="tap"] Touch interaction mode ('tap'|'hold')
+ * @param {import("react").ReactElement} props.children Target element
+ * @returns {import("react").JSX.Element}
+ */
 export default function Tooltip({
   content,
   renderContent,
