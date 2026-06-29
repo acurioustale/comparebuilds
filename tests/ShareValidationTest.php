@@ -200,7 +200,18 @@ final class ShareValidationTest extends TestCase
             'classId' => 1,
             'specId' => 1,
             'builds' => ['AA', 'BB'],
-            'layoutHash' => str_repeat('x', 17),
+            'layoutHash' => str_repeat('a', 17),
+        ]);
+        $this->assertArrayHasKey('error', $r);
+    }
+
+    public function testRejectsNonHexLayoutHash(): void
+    {
+        $r = validate_share_input([
+            'classId' => 1,
+            'specId' => 1,
+            'builds' => ['AA', 'BB'],
+            'layoutHash' => '<script>alert(1)',
         ]);
         $this->assertArrayHasKey('error', $r);
     }
