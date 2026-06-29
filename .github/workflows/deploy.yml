@@ -32,11 +32,11 @@ jobs:
         id: versions
         run: |
           {
-            echo "php=$(awk '/^php/ {print $2}' .tool-versions)"
-            echo "shfmt=$(awk '/^shfmt/ {print $2}' .tool-versions)"
-            echo "phpcsfixer=$(awk '/^php-cs-fixer/ {print $2}' .tool-versions)"
-            echo "phpunit=$(awk '/^phpunit/ {print $2}' .tool-versions)"
-            echo "actionlint=$(awk '/^actionlint/ {print $2}' .tool-versions)"
+            echo "php=$(awk '/^php / {print $2}' .tool-versions)"
+            echo "shfmt=$(awk '/^shfmt / {print $2}' .tool-versions)"
+            echo "phpcsfixer=$(awk '/^php-cs-fixer / {print $2}' .tool-versions)"
+            echo "phpunit=$(awk '/^phpunit / {print $2}' .tool-versions)"
+            echo "actionlint=$(awk '/^actionlint / {print $2}' .tool-versions)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Shell scripts (shellcheck + shfmt)
