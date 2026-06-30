@@ -229,34 +229,41 @@ function client_ip(): string
 {
     $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
 
-    $isDirectProxyTrusted = !defined('TRUSTED_PROXIES') || !is_array(TRUSTED_PROXIES) || is_trusted_proxy($remoteAddr);
+    if (defined('TRUST_PROXY') && TRUST_PROXY) {
+        // Failing closed: if you trust a proxy, you must define which proxy you trust.
+        // Otherwise, anyone can connect directly and spoof X-Forwarded-For.
+        if (!defined('TRUSTED_PROXIES') || !is_array(TRUSTED_PROXIES)) {
+            // Misconfiguration: fallback to remote addr instead of trusting everything
+            return $remoteAddr;
+        }
 
-    if (defined('TRUST_PROXY') && TRUST_PROXY && $isDirectProxyTrusted) {
-        if (defined('TRUST_CLOUDFLARE') && TRUST_CLOUDFLARE && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            if (filter_var($_SERVER['HTTP_CF_CONNECTING_IP'], FILTER_VALIDATE_IP) !== false) {
-                return $_SERVER['HTTP_CF_CONNECTING_IP'];
-            }
-        }
-        if (defined('TRUST_X_REAL_IP') && TRUST_X_REAL_IP && !empty($_SERVER['HTTP_X_REAL_IP'])) {
-            if (filter_var($_SERVER['HTTP_X_REAL_IP'], FILTER_VALIDATE_IP) !== false) {
-                return $_SERVER['HTTP_X_REAL_IP'];
-            }
-        }
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ips = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
-            // Start from the rightmost (last proxy added) and find the first non-trusted IP
-            $ips = array_reverse($ips);
-            foreach ($ips as $ip) {
-                if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-                    break; // corrupted chain or invalid IP; stop trusting further left
+        if (is_trusted_proxy($remoteAddr)) {
+            if (defined('TRUST_CLOUDFLARE') && TRUST_CLOUDFLARE && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+                if (filter_var($_SERVER['HTTP_CF_CONNECTING_IP'], FILTER_VALIDATE_IP) !== false) {
+                    return $_SERVER['HTTP_CF_CONNECTING_IP'];
                 }
-                if (!is_trusted_proxy($ip)) {
-                    return $ip;
-                }
-                $realIp = $ip; // keep as fallback if all are trusted
             }
-            if (isset($realIp)) {
-                return $realIp;
+            if (defined('TRUST_X_REAL_IP') && TRUST_X_REAL_IP && !empty($_SERVER['HTTP_X_REAL_IP'])) {
+                if (filter_var($_SERVER['HTTP_X_REAL_IP'], FILTER_VALIDATE_IP) !== false) {
+                    return $_SERVER['HTTP_X_REAL_IP'];
+                }
+            }
+            if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $ips = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+                // Start from the rightmost (last proxy added) and find the first non-trusted IP
+                $ips = array_reverse($ips);
+                foreach ($ips as $ip) {
+                    if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                        break; // corrupted chain or invalid IP; stop trusting further left
+                    }
+                    if (!is_trusted_proxy($ip)) {
+                        return $ip;
+                    }
+                    $realIp = $ip; // keep as fallback if all are trusted
+                }
+                if (isset($realIp)) {
+                    return $realIp;
+                }
             }
         }
     }
