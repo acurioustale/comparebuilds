@@ -490,9 +490,9 @@ function store_share(PDO $pdo, array $payload, string $ipHash, ?object $redis = 
     try {
         // ── Per-IP rate limit ────────────────────────────────────────────────
         $rateLimited = false;
-        
+
         $currentCountRedis = RateLimiter::checkRedis($redis, 'cb_rl_share_' . $ipHash, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, true);
-        
+
         if ($currentCountRedis !== null) {
             $currentCount = $currentCountRedis;
             if ($currentCount >= RATE_LIMIT_MAX) {
