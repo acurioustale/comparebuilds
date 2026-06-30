@@ -19,7 +19,13 @@ export async function createServerShare({
   const apiBase = import.meta.env.BASE_URL + "api/share.php";
   const res = await fetch(apiBase, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // X-CompareBuilds-Client is a custom header that forces a CORS preflight on
+      // any cross-origin request, providing defence-in-depth against CSRF.
+      // The server rejects POST requests that omit this header (see api/share.php).
+      "X-CompareBuilds-Client": "1",
+    },
     body: JSON.stringify({
       classId,
       specId,

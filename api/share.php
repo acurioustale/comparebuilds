@@ -762,6 +762,16 @@ if ($method === 'POST') {
         fail(415, 'Unsupported Media Type: expected application/json');
     }
 
+    // Require a custom header as an additional defence-in-depth CSRF barrier.
+    // Browsers must send a CORS preflight for any cross-origin request that
+    // contains a custom header, making CSRF structurally impossible regardless
+    // of Content-Type handling quirks or browser edge-cases. The SPA always
+    // sends this header (see src/lib/shareLink.js); direct browser navigation
+    // or a crafted cross-origin form cannot set it without a preflight.
+    if (empty($_SERVER['HTTP_X_COMPAREBUILDS_CLIENT'])) {
+        fail(400, 'Missing required request header');
+    }
+
     // Reject cross-origin writes: no CORS headers are sent, so reads are blocked,
     // but a simple-request POST would otherwise create a share cross-origin.
     if (!is_same_origin_write(
