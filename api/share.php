@@ -228,7 +228,10 @@ function is_trusted_proxy(string $ip): bool
 function client_ip(): string
 {
     $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (defined('TRUST_PROXY') && TRUST_PROXY && is_trusted_proxy($remoteAddr)) {
+
+    $isDirectProxyTrusted = !defined('TRUSTED_PROXIES') || !is_array(TRUSTED_PROXIES) || is_trusted_proxy($remoteAddr);
+
+    if (defined('TRUST_PROXY') && TRUST_PROXY && $isDirectProxyTrusted) {
         if (defined('TRUST_CLOUDFLARE') && TRUST_CLOUDFLARE && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
             if (filter_var($_SERVER['HTTP_CF_CONNECTING_IP'], FILTER_VALIDATE_IP) !== false) {
                 return $_SERVER['HTTP_CF_CONNECTING_IP'];
