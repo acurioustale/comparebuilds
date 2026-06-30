@@ -428,7 +428,7 @@ function get_redis_connection(): ?object
     try {
         $redis = new Redis();
         $port = defined('REDIS_PORT') ? REDIS_PORT : 6379;
-        if (@$redis->connect(REDIS_HOST, $port, 1.0)) {
+        if (@$redis->pconnect(REDIS_HOST, $port, 1.0)) {
             return $redis;
         }
     } catch (Throwable $e) {
