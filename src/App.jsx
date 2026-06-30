@@ -295,6 +295,16 @@ function MainView() {
   const validParsed = useMemo(() => valid.map((v) => v.parsed), [valid]);
   const validLabels = useMemo(() => valid.map((v) => v.label), [valid]);
 
+  // The spotlight is driven by DiffSummaryTable row hover, and that table only
+  // renders while comparing (valid.length >= 2). If a build is removed while a
+  // row is hovered the table unmounts before mouseleave fires, leaving a stale
+  // spotlightId that dims every non-spotlight node with no way to clear it.
+  // Clear it whenever the table can no longer be controlled.
+  const summaryShown = valid.length >= 2;
+  useEffect(() => {
+    if (!summaryShown) setSpotlightId(null);
+  }, [summaryShown]);
+
   if (!treeData) return null;
 
   // The search field lives at the bottom of the active tree panel (WoW-style),

@@ -102,6 +102,39 @@ describe("comparison view", () => {
   });
 });
 
+describe("spotlight cleanup", () => {
+  // Regression: hovering a DiffSummaryTable row sets spotlightId, which dims
+  // every other tree node to opacity 0.3. The table only renders while comparing
+  // (>= 2 valid builds). Removing a build while a row is hovered unmounts the
+  // table before its mouseleave fires, so without the MainView cleanup effect the
+  // spotlight stayed set and kept dimming nodes with no way to clear it.
+  const dimmedCount = (root) =>
+    Array.from(root.querySelectorAll('[style*="opacity: 0.3"]')).length;
+
+  test("clears the spotlight when a build is removed below the comparison threshold", async () => {
+    const { container } = render(<App />);
+    const [a, b] = genStrings("death_knight", "blood", 2);
+    paste(screen.getAllByPlaceholderText("Paste build string…")[0], a);
+    await screen.findByPlaceholderText(/Build 1 — Blood Death Knight/);
+    paste(screen.getByPlaceholderText("Paste build string…"), b);
+    await screen.findByText(/Differences/, { selector: "p" });
+
+    // Hover a summary row to spotlight its node — other nodes dim to 0.3.
+    const row = (await screen.findAllByRole("row")).find((r) =>
+      r.querySelector("td"),
+    );
+    fireEvent.mouseEnter(row);
+    expect(dimmedCount(container)).toBeGreaterThan(0);
+
+    // Remove a build (drops to one valid build) WITHOUT the row's mouseleave.
+    fireEvent.click(screen.getAllByTitle("Remove")[0]);
+
+    // The diff summary is gone and the lingering spotlight is cleared.
+    expect(screen.queryByText(/Differences/, { selector: "p" })).toBeNull();
+    expect(dimmedCount(container)).toBe(0);
+  });
+});
+
 describe("share rehydration", () => {
   test("loads builds referenced by the URL hash", async () => {
     const builds = genStrings("death_knight", "blood", 2);
