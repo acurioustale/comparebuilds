@@ -284,6 +284,26 @@ if (!function_exists('imagecreatetruecolor')) {
     bail(500);
 }
 
+$limit = ini_get('memory_limit');
+if ($limit !== false && $limit !== '' && $limit !== '-1') {
+    $val = (int) $limit;
+    $last = strtolower(substr(trim($limit), -1));
+    if ($last === 'g') {
+        $val *= 1024 * 1024 * 1024;
+    } elseif ($last === 'm') {
+        $val *= 1024 * 1024;
+    } elseif ($last === 'k') {
+        $val *= 1024;
+    }
+
+    // We want at least 8MB of headroom for the GD buffer and overhead.
+    $required = 8 * 1024 * 1024;
+    if ($val > 0 && ($val - memory_get_usage()) < $required) {
+        error_log('Insufficient memory to render OG image (limit: ' . $limit . ')');
+        bail(500);
+    }
+}
+
 $W = 1200;
 $H = 630;
 $img = @imagecreatetruecolor($W, $H);
