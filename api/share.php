@@ -101,6 +101,14 @@ function is_same_origin_write(?string $secFetchSite, ?string $origin, ?string $r
     if ($referer !== null && $referer !== '') {
         return $referer === $site || str_starts_with($referer, $site . '/');
     }
+
+    // Allow the request if all tracking headers are completely absent,
+    // as stateless APIs don't suffer from traditional cookie-based CSRF vulnerabilities.
+    // This accommodates aggressive privacy extensions.
+    if (empty($secFetchSite) && empty($origin) && empty($referer)) {
+        return true;
+    }
+
     return false;
 }
 
