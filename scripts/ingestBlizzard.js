@@ -47,6 +47,7 @@ import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { sanitizeDescription } from "../src/lib/sanitizeDescription.js";
+import { cellKey } from "../src/lib/treeLogic.js";
 import {
   POINT_BUDGET,
   writeNormalizedData,
@@ -327,8 +328,6 @@ export function extractHeroSubtrees(tree, specInfoId) {
 export function filterSpecVariants(built, specInfoId, db2) {
   // Spec-variant filter: some trees are shared by several specs and place, at one
   // grid cell, a separate variant of a talent per spec.
-  const cellKey = (n) =>
-    `${n.treeType}|${n.heroSubtree ?? ""}|${n.posX},${n.posY}`;
   const cellHasNativeVariant = new Set();
   for (const n of built)
     if (db2.appliesToSpec(n.id, specInfoId))
@@ -509,8 +508,6 @@ export async function normaliseSpec(specInfo, tree, db2, fns) {
  * @returns {number[]} dropped duplicate node ids
  */
 export function collapseColocatedDuplicates(spec) {
-  const cellKey = (n) =>
-    `${n.treeType}|${n.heroSubtree ?? ""}|${n.posX},${n.posY}`;
   // cell → (talent name → node ids)
   const byCell = new Map();
   for (const n of spec.nodes) {
