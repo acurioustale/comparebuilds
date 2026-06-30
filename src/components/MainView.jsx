@@ -159,7 +159,7 @@ export default function MainView() {
   const summaryShown = valid.length >= 2;
   useEffect(() => {
     if (!summaryShown) setSpotlightId(null);
-  }, [summaryShown]);
+  }, [summaryShown, setSpotlightId]);
 
   if (!treeData) return null;
 
