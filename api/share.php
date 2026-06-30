@@ -217,12 +217,13 @@ function client_ip(): string
             // Start from the rightmost (last proxy added) and find the first non-trusted IP
             $ips = array_reverse($ips);
             foreach ($ips as $ip) {
-                if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
-                    if (!is_trusted_proxy($ip)) {
-                        return $ip;
-                    }
-                    $realIp = $ip; // keep as fallback if all are trusted
+                if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                    break; // corrupted chain or invalid IP; stop trusting further left
                 }
+                if (!is_trusted_proxy($ip)) {
+                    return $ip;
+                }
+                $realIp = $ip; // keep as fallback if all are trusted
             }
             if (isset($realIp)) {
                 return $realIp;
