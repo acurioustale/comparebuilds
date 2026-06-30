@@ -43,6 +43,13 @@ const DATA_DIR = join(__dirname, "..", "src", "data");
 const OUT_DIR = join(__dirname, "..", "public", "talent-icons");
 const BASE_URL = "https://render.worldofwarcraft.com/us/icons/56";
 const CONCURRENCY = 16;
+const MAX_ATTEMPTS = 3;
+// Backoff before each retry (not after the final attempt): a transient 403 from
+// CDN rate-limiting needs time to clear, and 16 workers retrying back-to-back
+// only deepens the throttle. Exponential with a little jitter spreads the load.
+const RETRY_BACKOFF_MS = [250, 500, 1000];
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Walk an arbitrary JSON value, collecting every non-empty `icon` string.
 function collectIcons(value, sink) {
@@ -79,7 +86,13 @@ async function fetchOne(name) {
   if (existsSync(dest)) return "skipped";
   let lastErr;
   let lastStatus = 0; // last HTTP status seen (0 = network/timeout error)
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      // Wait before retrying so a rate-limited CDN has a chance to recover;
+      // add jitter so the concurrent workers don't all retry in lockstep.
+      const base = RETRY_BACKOFF_MS[attempt - 1] ?? RETRY_BACKOFF_MS.at(-1);
+      await sleep(base + Math.floor(Math.random() * base * 0.25));
+    }
     try {
       const res = await fetch(`${BASE_URL}/${name}.jpg`, {
         signal: AbortSignal.timeout(15000),
