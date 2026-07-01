@@ -1,6 +1,6 @@
 import classesIndex from "../data/classes.json";
 import { parseBuildString } from "../lib/buildString";
-import { spentPoints } from "../lib/treeLogic";
+import { activeHeroSubtree } from "../lib/treeLogic";
 
 // Vite creates a lazy chunk per matched file. The glob must be a string literal.
 // Paths are relative to this file (src/store/ → src/data/). classes.json is the
@@ -15,8 +15,17 @@ const CLASS_MODULES = import.meta.glob([
 
 /**
  * If `nodes` contains selections from more than one hero subtree, strips all
- * but the dominant one (highest total points invested).  Returns `nodes`
- * unchanged when there is zero or one active subtree.
+ * but the active one.  Returns `nodes` unchanged when there is zero or one
+ * active subtree.
+ *
+ * "Active" is resolved through the shared `activeHeroSubtree` rule (the first
+ * selected, non-granted hero node in node order) — the same single source the
+ * spend rules (`canSpendPoint`) and the validity cascade (`computeInvalidNodeIds`)
+ * use. Keeping them in lockstep is the point: an imported build that (only a
+ * corrupt/hand-built string can) invests in two subtrees must resolve to the
+ * SAME legal half whether it is being diffed, validated, or opened to edit. A
+ * separate "most points" tie-break here diverged from that rule, so the editor
+ * could keep the opposite subtree from the one the comparison views flagged.
  * @param {Record<number, { pointsInvested: number, entryChosen: number|null }>} nodes
  * @param {object|null} treeData
  * @returns {Record<number, { pointsInvested: number, entryChosen: number|null }>}
@@ -24,8 +33,7 @@ const CLASS_MODULES = import.meta.glob([
 export function sanitizeHeroSubtrees(nodes, treeData) {
   if (!treeData) return nodes;
 
-  // Which hero subtrees carry any (non-granted) selected points? Insertion order
-  // follows treeData.nodes, which keeps the tie-break below deterministic.
+  // Which hero subtrees carry any (non-granted) selected points?
   const subs = new Set();
   for (const n of treeData.nodes) {
     if (n.treeType === "hero" && !n.alreadyGranted && nodes[n.id])
@@ -33,17 +41,7 @@ export function sanitizeHeroSubtrees(nodes, treeData) {
   }
   if (subs.size <= 1) return nodes;
 
-  // Keep whichever subtree has the most invested points, counted through the
-  // shared accumulator so this can't drift from the spend/gate budget logic.
-  let keepSub = null;
-  let best = -1;
-  for (const sub of subs) {
-    const pts = spentPoints(treeData.nodes, nodes, "hero", sub);
-    if (pts > best) {
-      best = pts;
-      keepSub = sub;
-    }
-  }
+  const keepSub = activeHeroSubtree(treeData.nodes, nodes);
 
   const result = { ...nodes };
   for (const n of treeData.nodes) {
