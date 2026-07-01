@@ -82,6 +82,35 @@ final class LayoutRetentionTest extends TestCase
         reconcile_layout_history($pdo, []);
     }
 
+    public function testTouchShareAccessRunsDebouncedUpdate(): void
+    {
+        $stmt = $this->createMock(PDOStatement::class);
+        $stmt->expects($this->once())->method('execute')->with(['abc123xy'])->willReturn(true);
+
+        $pdo = $this->createMock(PDO::class);
+        $pdo->expects($this->once())
+            ->method('prepare')
+            ->willReturnCallback(function (string $sql) use ($stmt) {
+                // Debounced to at most one write/day so a hot link can't storm writes.
+                $this->assertStringContainsString('UPDATE comparebuilds_shares SET last_accessed = NOW()', $sql);
+                $this->assertStringContainsString('last_accessed < NOW() - INTERVAL 1 DAY', $sql);
+                return $stmt;
+            });
+
+        touch_share_access($pdo, 'abc123xy');
+    }
+
+    public function testTouchShareAccessSwallowsErrors(): void
+    {
+        // Retention bookkeeping must never break serving a share, so a DB error
+        // during the touch is swallowed rather than propagated.
+        $pdo = $this->createMock(PDO::class);
+        $pdo->method('prepare')->willThrowException(new PDOException('db down'));
+
+        // Returns normally (void) despite the thrown PDOException — no rethrow.
+        $this->assertNull(touch_share_access($pdo, 'abc123xy'));
+    }
+
     public function testReconcileInsertsCurrentHashesAndSupersedesTheRest(): void
     {
         $current = ['death_knight' => 'aaaa1111', 'mage' => 'bbbb2222'];

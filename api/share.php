@@ -888,6 +888,26 @@ if ($method === 'GET') {
         fail(400, 'Invalid ID format');
     }
 
+    // ── Liveness beacon (?touch=1) ───────────────────────────────────────────
+    // The SPA fires this uncached ping on every share open so `last_accessed`
+    // reflects real use even when the data GET below is served from the
+    // `immutable` cache (a warm-cache reopen never reaches PHP otherwise). It
+    // returns 204 with no body — same-origin only, so a cross-site page can't
+    // fire it to keep arbitrary links alive; and 204 regardless of whether the id
+    // exists, so it's no enumeration oracle beyond what a normal GET already is.
+    if (isset($_GET['touch'])) {
+        header('Cache-Control: no-store');
+        if (is_same_origin_write(
+            $_SERVER['HTTP_SEC_FETCH_SITE'] ?? null,
+            $_SERVER['HTTP_ORIGIN'] ?? null,
+            $_SERVER['HTTP_REFERER'] ?? null,
+        )) {
+            touch_share_access($pdo, $id); // debounced + best-effort inside
+        }
+        http_response_code(204);
+        exit;
+    }
+
     try {
         $data = get_share($pdo, $id);
     } catch (Throwable $e) {
