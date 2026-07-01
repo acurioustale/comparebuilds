@@ -69,9 +69,31 @@ try {
     // Each prune is independent: a transient error on one table must not skip the
     // others. The request-log tables feed the rate-limit COUNT queries in
     // share.php/og.php, so leaving them unpruned bloats those queries.
+    // Supersession-gated retention. A share is deleted only when ALL hold:
+    //   1. unused for the retention window (last_accessed old enough), AND
+    //   2. its layout is NOT currently live — i.e. no comparebuilds_layout_history
+    //      row with superseded_at IS NULL matches its layout_hash (a live layout is
+    //      never pruned, no matter how old); AND
+    //   3. the layout has been superseded for at least the window too, so the whole
+    //      unused period falls *after* supersession. Legacy rows (layout_hash NULL,
+    //      or a hash with no history row) have no supersession date, so COALESCE
+    //      treats them as superseded at the epoch — prunable purely on the unused
+    //      clock. The correlated subqueries read comparebuilds_layout_history (a
+    //      different table), which is permitted while deleting from _shares.
     if (!prune_batched(
         $pdo,
-        'DELETE FROM comparebuilds_shares WHERE created_at < NOW() - INTERVAL 180 DAY ORDER BY created_at ASC LIMIT 1000',
+        'DELETE FROM comparebuilds_shares'
+        . ' WHERE last_accessed < NOW() - INTERVAL 180 DAY'
+        . '   AND NOT EXISTS ('
+        . '     SELECT 1 FROM comparebuilds_layout_history h'
+        . '     WHERE h.layout_hash = comparebuilds_shares.layout_hash AND h.superseded_at IS NULL'
+        . '   )'
+        . '   AND COALESCE('
+        . '     (SELECT h2.superseded_at FROM comparebuilds_layout_history h2'
+        . '      WHERE h2.layout_hash = comparebuilds_shares.layout_hash),'
+        . "     TIMESTAMP('1970-01-01')"
+        . '   ) < NOW() - INTERVAL 180 DAY'
+        . ' LIMIT 1000',
         'shares'
     )) {
         $failed = true;
