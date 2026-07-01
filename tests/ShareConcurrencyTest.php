@@ -99,15 +99,6 @@ final class ShareConcurrencyTest extends TestCase
             {
                 return false;
             }
-            public function incr($key)
-            {
-                $this->count++;
-                return 1;
-            }
-            public function expire($key, $ttl)
-            {
-                return true;
-            }
             public function del($key)
             {
                 $this->unlocked = true;
@@ -115,6 +106,13 @@ final class ShareConcurrencyTest extends TestCase
             }
             public function eval($script, $args, $numKeys)
             {
+                // The rate-limit check runs its INCR/EXPIRE as one atomic Lua
+                // script; the lock release is a separate script. Distinguish them
+                // by content so this mock mirrors both call sites.
+                if (str_contains($script, 'incr')) {
+                    $this->count++;
+                    return 1; // first hit, within the limit
+                }
                 $this->unlocked = true;
                 return 1;
             }

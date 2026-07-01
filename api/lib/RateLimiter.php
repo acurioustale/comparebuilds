@@ -79,16 +79,26 @@ class RateLimiter
             return null;
         }
 
+        // INCR the window counter and (re)apply its TTL atomically in one Lua
+        // script, so nothing can interleave between the INCR and the EXPIRE and
+        // leave the key without an expiry — a counter that would then never reset
+        // and permanently rate-limit the IP. Semantics mirror the previous PHP
+        // sequence exactly: set the TTL on the first hit, or whenever it is
+        // missing (ttl < 0, e.g. after a PERSIST); and, when penalising, extend
+        // the window to 2x once the limit is exceeded.
+        $script = <<<'LUA'
+            local val = redis.call('incr', KEYS[1])
+            if val == 1 or redis.call('ttl', KEYS[1]) < 0 then
+                redis.call('expire', KEYS[1], ARGV[1])
+            end
+            if ARGV[3] == '1' and val > tonumber(ARGV[2]) then
+                redis.call('expire', KEYS[1], tonumber(ARGV[1]) * 2)
+            end
+            return val
+            LUA;
+
         try {
-            $count = $redis->incr($rlKey);
-            if ($count === 1 || (int) $redis->ttl($rlKey) < 0) {
-                $redis->expire($rlKey, $window);
-            }
-            if ($count > $limit) {
-                if ($penalty) {
-                    $redis->expire($rlKey, $window * 2);
-                }
-            }
+            $count = $redis->eval($script, [$rlKey, $window, $limit, $penalty ? '1' : '0'], 1);
             return (int) $count;
         } catch (Throwable $e) {
             $redis = null;
