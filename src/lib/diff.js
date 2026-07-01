@@ -19,7 +19,13 @@ export function selectionLabel(node, sel) {
     // "option 1" (null + 1), which would mislabel it as the first option.
     if (sel.entryChosen == null) return node.name;
     const ch = node.choices[sel.entryChosen];
-    return ch?.name ?? `option ${sel.entryChosen + 1}`;
+    const name = ch?.name ?? `option ${sel.entryChosen + 1}`;
+    // If a chosen option is itself multi-rank, show the rank against THAT
+    // option's maxRanks, not the node-level field (which can differ). No current
+    // choice option is multi-rank, so this is output-neutral today; it keeps the
+    // denominator correct should the data ever gain ranked choice options.
+    const optMax = ch?.maxRanks ?? 1;
+    return optMax > 1 ? `${name} (${sel.pointsInvested}/${optMax})` : name;
   }
   if (node.type === "apex" || node.maxRanks > 1) {
     return `${node.name} (${sel.pointsInvested}/${node.maxRanks})`;
