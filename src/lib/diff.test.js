@@ -90,6 +90,19 @@ describe("selectionLabel", () => {
     assert.strictEqual(selectionLabel(byId[3], pt(1, 1)), "Y"));
   test("choice node with out-of-range index → fallback", () =>
     assert.strictEqual(selectionLabel(byId[3], pt(1, 5)), "option 6"));
+  test("multi-rank chosen option → ranks against the OPTION's max, not the node's", () => {
+    // node-level maxRanks (1) deliberately differs from the chosen option's (2)
+    // to prove the denominator comes from the option.
+    const rankedChoice = {
+      type: "choice",
+      name: "Split",
+      maxRanks: 1,
+      choices: [{ name: "X" }, { name: "Z", maxRanks: 2 }],
+    };
+    assert.strictEqual(selectionLabel(rankedChoice, pt(2, 1)), "Z (2/2)");
+    // A single-rank option still shows just the name.
+    assert.strictEqual(selectionLabel(rankedChoice, pt(1, 0)), "X");
+  });
   test("choice node with unknown pick names the node, not a fake option 1", () => {
     const named = {
       type: "choice",
