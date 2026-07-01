@@ -56,14 +56,20 @@ export function useShareActions({
   // share-controls component (e.g. clearing all builds within the 2s window).
   const copyTimer = useRef(null);
   const simcTimer = useRef(null);
+  // The reset timers are scheduled in an async finally that runs *after* the
+  // share promise settles — potentially after unmount, once the cleanup below
+  // has already run and can no longer clear them. Track mount state so the
+  // finally can skip scheduling a timer that nothing would ever clear.
+  const mounted = useRef(true);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       clearTimeout(copyTimer.current);
       clearTimeout(simcTimer.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const handleCopyLink = useCallback(async () => {
     if (copyState !== "idle") return;
@@ -89,7 +95,9 @@ export function useShareActions({
     } catch {
       setCopyState("error");
     } finally {
-      copyTimer.current = setTimeout(() => setCopyState("idle"), 2000);
+      if (mounted.current) {
+        copyTimer.current = setTimeout(() => setCopyState("idle"), 2000);
+      }
     }
   }, [
     copyState,
@@ -119,7 +127,9 @@ export function useShareActions({
     } catch {
       setSimcState("error");
     } finally {
-      simcTimer.current = setTimeout(() => setSimcState("idle"), 2000);
+      if (mounted.current) {
+        simcTimer.current = setTimeout(() => setSimcState("idle"), 2000);
+      }
     }
   }, [
     simcState,
