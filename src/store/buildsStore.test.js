@@ -336,7 +336,7 @@ describe("build names", () => {
 // ── Hero-subtree sanitisation ─────────────────────────────────────────────────
 
 describe("setInteractiveNodes", () => {
-  test("strips all but the dominant hero subtree", async () => {
+  test("strips all but the active hero subtree (shared activeHeroSubtree rule)", async () => {
     await get().preloadSpec(DK_BLOOD);
     const td = get().treeData;
     const hero = td.nodes.filter(
@@ -353,17 +353,34 @@ describe("setInteractiveNodes", () => {
       "fixture needs hero nodes in both subtrees",
     );
 
-    // Left = 1 point, Right = 2 points → Right dominates, Left should be stripped.
+    // Invest in both subtrees (only a corrupt/hand-built string could). The prune
+    // must keep the subtree the shared activeHeroSubtree rule reports — the first
+    // selected, non-granted hero node in node order — regardless of point counts,
+    // so the editor can't disagree with the diff/validity views about which half
+    // is legal.
     const sel = { ...get().interactiveNodes };
     sel[leftNode.id] = { pointsInvested: 1, entryChosen: null };
     for (const rn of rightNodes)
       sel[rn.id] = { pointsInvested: 1, entryChosen: null };
+
+    const selectedHeroIds = new Set([
+      leftNode.id,
+      ...rightNodes.map((n) => n.id),
+    ]);
+    const firstSelected = hero.find((n) => selectedHeroIds.has(n.id));
+    const keepSub = firstSelected.heroSubtree;
+
     get().setInteractiveNodes(sel);
 
     const after = get().interactiveNodes;
-    assert.ok(!after[leftNode.id], "weaker subtree node should be removed");
-    for (const rn of rightNodes)
-      assert.ok(after[rn.id], "dominant subtree nodes should be kept");
+    for (const n of hero) {
+      if (!selectedHeroIds.has(n.id)) continue;
+      if (n.heroSubtree === keepSub) {
+        assert.ok(after[n.id], "active-subtree nodes should be kept");
+      } else {
+        assert.ok(!after[n.id], "inactive-subtree nodes should be removed");
+      }
+    }
   });
 
   test("leaves a single active subtree untouched", async () => {
