@@ -140,6 +140,7 @@ function PairedBuildView({
   footer,
   changesOnly,
   setChangesOnly,
+  onSwap,
 }) {
   return (
     <div className="mt-6">
@@ -153,6 +154,7 @@ function PairedBuildView({
               labelA={labelA}
               labelB={labelB}
               layout={layout}
+              onSwap={onSwap}
               changesToggle={
                 <ChangesFilterToggle
                   value={changesOnly}
@@ -178,6 +180,7 @@ export default function MainView() {
     addingBuild,
     startAddingBuild,
     editingIndex,
+    swapBuilds,
   } = useBuildsStore(
     useShallow((s) => ({
       treeData: s.treeData,
@@ -188,6 +191,7 @@ export default function MainView() {
       addingBuild: s.addingBuild,
       startAddingBuild: s.startAddingBuild,
       editingIndex: s.editingIndex,
+      swapBuilds: s.swapBuilds,
     })),
   );
 
@@ -219,6 +223,7 @@ export default function MainView() {
     () =>
       parsedBuilds
         .map((p, i) => ({
+          index: i,
           parsed: p,
           label: buildNames[i]?.trim() || `Build ${i + 1}`,
         }))
@@ -286,6 +291,7 @@ export default function MainView() {
         footer={comparisonFooter}
         changesOnly={changesOnly}
         setChangesOnly={setChangesOnly}
+        onSwap={() => swapBuilds(valid[0].index, valid[1].index)}
       />
     );
   } else if (valid.length === 1) {
