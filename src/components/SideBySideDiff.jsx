@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import Tooltip from "./Tooltip";
 import { TreePanel } from "./TalentTree";
 import { computeDiff, selectionLabel } from "../lib/diff";
 import { byId, splitSections } from "./treeLayout";
@@ -228,6 +229,7 @@ export default function SideBySideDiff({
   // reflow lines up with the zoom scale.
   layout = "row",
   changesToggle = null,
+  onSwap = null,
 }) {
   const { highlights, aOnly, bOnly, differing } = useMemo(
     () => computeDiff(buildA.nodes, buildB.nodes, treeData.nodes),
@@ -326,9 +328,23 @@ export default function SideBySideDiff({
 
   return (
     <div>
-      {/* Changes-only toggle, right-aligned atop the build panels. */}
-      {changesToggle && (
-        <div className="flex justify-end mb-4">{changesToggle}</div>
+      {/* Swap + changes-only toggle, right-aligned atop the build panels. */}
+      {(onSwap || changesToggle) && (
+        <div className="flex justify-end items-center gap-2 mb-4">
+          {onSwap && (
+            <Tooltip content="Swap which build is the baseline" placement="top">
+              <button
+                type="button"
+                onClick={onSwap}
+                aria-label="Swap builds A and B"
+                className="wow-btn text-xs px-2.5 py-1.5 rounded select-none text-wow-muted hover:text-wow-gold transition-colors leading-none"
+              >
+                ⇄
+              </button>
+            </Tooltip>
+          )}
+          {changesToggle}
+        </div>
       )}
 
       <div className="flex flex-col gap-8 pb-2">
